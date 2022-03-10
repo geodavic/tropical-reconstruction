@@ -8,6 +8,10 @@ Here are some example uses of the code that demonstrate capability.
 
 ## Tropical Polynomials
 
+```python
+>>> from function import TropicalPolynomial
+```
+
 
 ## Polynomial Neural Networks
 
