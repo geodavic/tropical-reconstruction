@@ -99,6 +99,3 @@ def test_composition(d,n,num):
     else:
         print("All examples passed")
 
-
-if __name__ == "__main__":
-    test_composition(2,4,10)
