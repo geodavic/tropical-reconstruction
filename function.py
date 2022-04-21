@@ -311,6 +311,7 @@ def test_equal(f1,f2,input_dim,n_samples=10000):
     for _ in range(n_samples):
         x = 1000*np.random.rand(input_dim)-500
         if abs(f1(x)-f2(x)) > 1e-10:
+            print(f"Failed at x = {x}")
             return False 
     return True
 
