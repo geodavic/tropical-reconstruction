@@ -4,6 +4,12 @@ from utils import test_tzlp, generate_witness, generate_LP_example
 from function import TropicalPolynomial, PolynomialNeuralNetwork, test_equal
 import tqdm
 
+def clean_float(fl):
+    if abs((fl-np.round(fl))) < 1e-6:
+        return int(np.round(fl))
+    else:
+        return fl
+
 class TropicalExampleB:
     """ Tropical polynomial:
     f(x,y) = 10 + 12x^4 + 9x^2y + 11x^6y + 14x^2y^4 + 16x^6y^4 + 13x^4y^5 + 15x^8y^5 + (-5)y^6 
@@ -14,6 +20,7 @@ class TropicalExampleB:
     coeffs = [10, 12, 9, 11, 14, 16, 13, 15, -5, -3, -6, -4, -1, 1, -2, 0]
     f = TropicalPolynomial(monomials,coeffs)
     f.Qz = np.array([[4,2,2,0],[0,1,4,6]])
+
 
 class NeuralNetworkExampleB:
     """ A Neural network pointwise equal to TropicalExampleB.
@@ -31,9 +38,32 @@ class TZLPExampleB:
     f = TropicalExampleB.f
     Qz,U,z0,Epsilon = f._get_tzlp_data()
     # make entries of U and Qz integer (for cleaner latex rendering)
-    Qz = [[int(e) for e in r] for r in Qz]
-    U = [[int(e) for e in r] for r in U]
+    Qz = [[clean_float(e) for e in r] for r in Qz]
+    U = [[clean_float(e) for e in r] for r in U]
     data = Qz,U,z0,Epsilon
+
+
+class NeuralNetworkExampleC:
+    A = np.array([[2,0],[2,1],[1,2],[0,2]])
+    B = np.array([[1,1,1,1]])
+    t = np.array([0.75,1.5,0.5,2.5])
+    r = np.array([8])
+    NN = PolynomialNeuralNetwork([A,B],[t,r])
+
+class TropicalExampleC:
+    f = NeuralNetworkExampleC.NN.tropical()[0]
+    f.Qz = NeuralNetworkExampleC.A.T
+
+class TZLPExampleC:
+    """ This TZLP data comes from converting TropicalExampleC to a Neural Network.
+    """
+    f = TropicalExampleC.f
+    Qz,U,z0,Epsilon = f._get_tzlp_data()
+    # make entries of U and Qz cleaner (for cleaner latex rendering)
+    Qz = [[clean_float(e) for e in r] for r in Qz]
+    U = [[clean_float(e) for e in r] for r in U]
+    data = Qz,U,z0,Epsilon
+
 
 
 class RandomNeuralNetwork:
