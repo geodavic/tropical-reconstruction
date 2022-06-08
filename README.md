@@ -21,6 +21,7 @@ To create a tropical polynomial, use the `TropicalPolynomial` class in `function
 >>> from function import TropicalPolynomial
 >>> f = TropicalPolynomial([(0,0),(1,1),(2,1)],[1,2,3])
 ```
+(make sure you are in the root directory when you run this, or else it will not know what `function` is)
 
 This is the polynomial `1+2xy+3x^2y`. To evaluate this polynomial at a point `[x,y]`:
 ```python
