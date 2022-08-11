@@ -64,7 +64,21 @@ class TZLPExampleC:
     U = [[clean_float(e) for e in r] for r in U]
     data = Qz,U,z0,Epsilon
 
+class NeuralNetworkExampleD:
+    """ A depth three neural network (2,4,2,1)
+    """
+    A = np.array([[2,0],[2,1],[1,2],[0,2]])
+    B = np.array([[0,1,2,1],[1,1,2,1]])
+    C = np.array([[1,1]])
+    t = np.array([0.75,1.5,0.5,2.5])
+    r = np.array([3,-1])
+    s = np.array([5])
+    NN = PolynomialNeuralNetwork([A,B,C],[t,r,s])
 
+class TropicalExampleD:
+    f = NeuralNetworkExampleD.NN.tropical()[0]
+
+   
 
 class RandomNeuralNetwork:
     """ A random depth 2 ReLU Polynomial Neural Network. Weights are chosen uniformly
@@ -105,6 +119,11 @@ class RandomTZLP:
 
 
 def test_composition(d,n,num):
+    """ Generate a random neural network N, convert it to a
+    tropical polynomial f, and the convert f back to a neural 
+    network N2 (using TZLP framework). Then check N == N2 pointwise
+    everywhere. Repeat num times.
+    """
     for _ in tqdm.tqdm(range(num)):
             
         N = RandomNeuralNetwork(d,n).NN
