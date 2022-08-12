@@ -68,18 +68,17 @@ class NeuralNetworkExampleD:
     """ A depth three neural network (2,4,2,1)
     """
     A = np.array([[2,0],[2,1],[1,2],[0,2]])
-    B = np.array([[0,1,2,1],[1,1,2,1]])
-    C = np.array([[1,1]])
+    B = np.array([[0,1,2,1],[1,0,2,1]])
+    C = np.array([[1,2]])
     t = np.array([0.75,1.5,0.5,2.5])
     r = np.array([3,-1])
-    s = np.array([5])
+    s = np.array([-3])
     NN = PolynomialNeuralNetwork([A,B,C],[t,r,s])
 
 class TropicalExampleD:
     f = NeuralNetworkExampleD.NN.tropical()[0]
 
    
-
 class RandomNeuralNetwork:
     """ A random depth 2 ReLU Polynomial Neural Network. Weights are chosen uniformly
     inside [0,20] and thresholds are chosen uniformly in [-10,10].
