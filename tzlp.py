@@ -1,11 +1,11 @@
 from scipy.spatial import ConvexHull
 from scipy.optimize import linprog
+from polytope import Polytope
 from copy import copy,deepcopy
 import math
 import numpy as np
 
-from utils import all_subsets, get_upper_hull
-
+from utils import all_subsets
 
 class TZLP_Solver:
     """ Basic class for a TZLP solver.
@@ -19,7 +19,7 @@ class TZLP_Solver:
         self.d = len(Qz)
         self.n = len(Qz[0])
         self.M = len(U)
-        self.Y = ConvexHull(self.U + [self.z0])
+        self.Y = Polytope(pts=self.U + [self.z0])
 
         # variable names
         self.latex_names = latex_names
@@ -98,20 +98,19 @@ class TZLP_Solver:
         
         # TLP
         qz = np.array(self.Qz)
-        Yhull = self.Y
         self.Epsilon_complement = [
             s for s in all_subsets(self.n) if not s in self.Epsilon and sum(s) > 0
         ]
 
-        self.Y_upper_hull_inequalities = get_upper_hull(Yhull)
+        self.Y_upper_hull_inequalities = self.Y.upper_hull
         self.N = len(self.Y_upper_hull_inequalities)
         P = lambda k, eta: (
-            (eta+[1]) * np.array(self.Y_upper_hull_inequalities[k][-2])
+            (eta+[1]) * np.array(self.Y_upper_hull_inequalities[k].a[-1])
         ).tolist()
 
         def r(k, eta):
-            d_k = -self.Y_upper_hull_inequalities[k][-1]
-            q_k = np.array(self.Y_upper_hull_inequalities[k][:-2])
+            d_k = -self.Y_upper_hull_inequalities[k].c
+            q_k = np.array(self.Y_upper_hull_inequalities[k].a[:-1])
             return d_k - q_k @ (qz @ np.array(eta))
 
         for eta in self.Epsilon_complement:
@@ -373,7 +372,4 @@ class Equation:
             s = s[1:].strip()
 
         return s
-
-
-
 

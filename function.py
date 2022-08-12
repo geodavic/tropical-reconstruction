@@ -2,8 +2,9 @@ from scipy.spatial import ConvexHull
 import numpy as np
 from copy import copy
 from tzlp import TZLP_Solver
+from polytope import Polytope, Zonotope, TOLERANCE
 
-from utils import get_upper_hull, all_subsets
+from utils import all_subsets
 
 
 class TropicalPolynomial:
@@ -148,39 +149,37 @@ class TropicalPolynomial:
     def newton_polytope(self):
         """Return the Newton polytope."""
         pts = [np.array(m) for m, _ in self.poly.items()]
-        hull = ConvexHull(pts)
-        return hull
+        P = Polytope(pts=pts)
+        return P
 
     def lifted_newton_polytope(self):
         """Return the lifted Newton polytope."""
         pts = [np.array(m + (c,)) for m, c in self.poly.items()]
-        hull = ConvexHull(pts)
-        return hull
+        P = Polytope(pts=pts)
+        return P
 
     def legendre(self):
         """Return the legendre transform of the polynomial represented
         as a collection of hyperplanes.
         """
-        hull = self.lifted_newton_polytope()
-        return get_upper_hull(hull)
+        planes = self.lifted_newton_polytope().upper_hull
+        return planes
 
     def legendre_vertices(self):
         """Return the vertices of the legendre transform (the vertices
         of the upper hull of the lifted newton polytopoe).
-
-        Uses a precision of 1e-10.
         """
         upper_hull_vertices = []
-        equations = self.legendre()
+        planes = self.legendre()
         newt = self.lifted_newton_polytope()
-        vertices = newt.points[newt.vertices]
+        vertices = newt.vertices
         for v in vertices:
-            for eq in equations:
-                found_v = False
-                if abs(v @ eq[:-1] + eq[-1]) < 1e-10:
+            for h in planes:
+                found_h = False
+                if h.boundary_contains(v):
                     upper_hull_vertices.append(v)
-                    found_v = True
-                if found_v:
+                    found_h = True
+                if found_h:
                     break
         return np.array(upper_hull_vertices)
 
@@ -194,8 +193,13 @@ class TropicalPolynomial:
             return self._get_zonotope()
 
     def _get_zonotope(self):
-        """Get the zonotope representation of Newt(f) (if it exists)."""
-        raise NotImplementedError
+        """Get the zonotope representation of Newt(f) (if it exists).
+        """
+        Z = Zonotope(self.newton_polytope.pts)
+        try:
+            return Z.generators
+        except:
+            return None
 
     def _get_tzlp_data(self):
         """Get the datum (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
@@ -213,7 +217,7 @@ class TropicalPolynomial:
             for u in U:
                 m = u[:-1]
                 for eps in subsets:
-                    if np.sum(np.abs(Qz @ eps - m)) < 1e-10:
+                    if np.sum(np.abs(Qz @ eps - m)) < TOLERANCE:
                         Epsilon.append(eps)
                         break
             return Qz.tolist(), U, z0, Epsilon

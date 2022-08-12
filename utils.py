@@ -82,16 +82,6 @@ def generate_LP_example(n,d,z0=1):
 
     return Qz,QZ,U,z0,Epsilon
 
-def get_upper_hull(hull):
-    """ Get the upper hull hyperplanes from a ConvexHull object.
-    This has some precision issues.
-    """
-    check_vertical = lambda x : np.round(x,decimals=8) > 0
-    upper_hull_inequalities = [
-        e for e in np.unique(hull.equations, axis=0) if check_vertical(e[-2])
-    ]
-    return upper_hull_inequalities
-
 
 ################### Old Code #######################
 
