@@ -22,6 +22,57 @@ def elements(N,n):
             rval.append(0)
     return rval
 
+def mathematica_print(A):
+    """ Print 2d array in mathematica format
+    """
+    if type(A) != np.ndarray:
+        return str(A)
+    else:
+        return "{"+",".join([mathematica_print(a) for a in A])+"}"
+
+def unit_ball(d,p=1):
+    """ Return vertices of the unit l^p ball in R^d.
+    """
+    if p==1:
+        V = []
+        for i in range(d):
+            v = np.zeros(d); v[i] = 1
+            w = np.zeros(d); w[i] = -1
+            V.append(v)
+            V.append(w)
+        V = np.array(V)
+    else:
+        raise NotImplementedError(f"Metric {p} is not supported")
+
+    return V
+
+def generate_LP_example(n,d,z0=1):
+    """ Generate a random QZ, project it to Qz. Then set U to be the 
+    set of vertices of Qz (with the lifted points from QZ) and return the tzlp.
+    """
+    Qz = np.random.rand(d,n)
+    last_row = np.random.rand(n)
+    QZ = np.append(Qz,[last_row],axis=0)
+
+    all_vertices = np.array([elements(i,n) for i in range(2**n)])
+   
+    # create vertices of Qz
+    Qz_cubical_vertices = []
+    for v in all_vertices:
+        Qz_cubical_vertices.append(Qz@v)
+    Qz_cubical_vertices = np.array(Qz_cubical_vertices)
+
+    Qz_hull = ConvexHull(Qz_cubical_vertices)
+    Epsilon = [list(v) for v in all_vertices[Qz_hull.vertices] if np.sum(v)]
+    U = [list(QZ@e) for e in Epsilon]
+    
+    z0 = [0]*d+[z0]
+
+    return Qz,QZ,U,z0,Epsilon
+
+
+################### Old Code #######################
+
 def sample_polytope(A, b, N=1, outside=False):
     # sample from polytope of the form Ax <= b
     if N > 1:
@@ -57,33 +108,6 @@ def sample_polytope(A, b, N=1, outside=False):
                 continue
 
     return start
-
-def generate_LP_example(n,d,z0=1):
-    """ Generate a random QZ, project it to Qz. Then set U to be the 
-    set of vertices of Qz (with the lifted points from QZ) and return the tzlp.
-    """
-    Qz = np.random.rand(d,n)
-    last_row = np.random.rand(n)
-    QZ = np.append(Qz,[last_row],axis=0)
-
-    all_vertices = np.array([elements(i,n) for i in range(2**n)])
-   
-    # create vertices of Qz
-    Qz_cubical_vertices = []
-    for v in all_vertices:
-        Qz_cubical_vertices.append(Qz@v)
-    Qz_cubical_vertices = np.array(Qz_cubical_vertices)
-
-    Qz_hull = ConvexHull(Qz_cubical_vertices)
-    Epsilon = [list(v) for v in all_vertices[Qz_hull.vertices] if np.sum(v)]
-    U = [list(QZ@e) for e in Epsilon]
-    
-    z0 = [0]*d+[z0]
-
-    return Qz,QZ,U,z0,Epsilon
-
-
-################### Old Code #######################
 
 def generate_witness(QZ, Epsilon, y_namer, w_namer, x_namer, N=1, outside=False):
     # Given a solution x (encoded as the last row of QZ), generate witness values

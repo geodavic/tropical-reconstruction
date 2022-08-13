@@ -136,3 +136,5 @@ True
 
 - Handle architectures of the form `(1,n,1)`
 - Implement `_get_zonotope` method for `TropicalPolynomial`
+- unit tests
+- documentation for polytopes and optimization

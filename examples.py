@@ -78,10 +78,23 @@ class NeuralNetworkExampleD:
 class TropicalExampleD:
     f = NeuralNetworkExampleD.NN.tropical()[0]
 
+
+class RandomDepth3:
+    MAX = 5
+    A = MAX*np.random.rand(5,2)
+    B = MAX*np.random.rand(3,5)
+    C = MAX*np.random.rand(1,3)
+    t = 2*MAX*np.random.rand(5) - MAX
+    r = 2*MAX*np.random.rand(3) - MAX
+    s = 2*MAX*np.random.rand(1) - MAX
+    NN = PolynomialNeuralNetwork([A,B,C],[t,r,s])
+
    
 class RandomNeuralNetwork:
     """ A random depth 2 ReLU Polynomial Neural Network. Weights are chosen uniformly
     inside [0,20] and thresholds are chosen uniformly in [-10,10].
+
+    TODO: write for general architectures
     """
     def __init__(self,d,n,integer=False):
         self.MAX = 5

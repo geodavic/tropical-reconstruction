@@ -18,6 +18,11 @@ class TropicalPolynomial:
             The monomials of the tropical polynomial.
         coeffs : List[float]
             The coefficients of the monomials.
+
+        This uses monomials and coeffs to build a dictionary (`poly`)
+        that represents the tropical polynomial. This class is atomic to `poly`.
+
+        TODO: make it atomic to poly in function (i.e. add @property where appropriate)
         """
         self.input_dim = len(monomials[0])
         self._set_poly(monomials, coeffs)
@@ -169,19 +174,13 @@ class TropicalPolynomial:
         """Return the vertices of the legendre transform (the vertices
         of the upper hull of the lifted newton polytopoe).
         """
-        upper_hull_vertices = []
-        planes = self.legendre()
-        newt = self.lifted_newton_polytope()
-        vertices = newt.vertices
-        for v in vertices:
-            for h in planes:
-                found_h = False
-                if h.boundary_contains(v):
-                    upper_hull_vertices.append(v)
-                    found_h = True
-                if found_h:
-                    break
-        return np.array(upper_hull_vertices)
+        return self.lifted_newton_polytope().upper_hull_vertices
+    
+    def dual_diagram(self):
+        """ Return the dual diagram of V(f), represented as the regular
+        subdivision of the lifted newton polytope of f.
+        """
+        return self.lifted_newton_polytope().regular_subdivision
 
     def zonotope(self):
         """Checks if the newton polytope of f is a zonotope. If yes,
