@@ -62,7 +62,7 @@ class Halfspace:
 
 class Polytope:
     """A polytope in V representation.
-    
+
     TODO: add sample() method.
     """
 
@@ -105,7 +105,7 @@ class Polytope:
 
     @property
     def regular_subdivision(self):
-        """ Return the simplices of the regular subdivision of the projection of P
+        """Return the simplices of the regular subdivision of the projection of P
         away from its last coordinate.
         """
         simplices = []
@@ -119,8 +119,7 @@ class Polytope:
 
     @property
     def upper_hull_vertices(self):
-        """ Return the vertices of the upper hull of P.
-        """
+        """Return the vertices of the upper hull of P."""
         vert = []
         for v in self.vertices:
             for h in self.upper_hull:
@@ -128,6 +127,20 @@ class Polytope:
                     vert.append(v)
                     break
         return np.array(vert)
+
+    @property
+    def is_centrally_symmetric(self):
+        """Check if P is centrally symmetric."""
+        for pt1 in self.vertices:
+            ref = 2 * self.barycenter - pt1
+            found_reflection = False
+            for pt2 in self.vertices:
+                err = np.abs(pt2 - ref)
+                if max(err) < self.tolerance:
+                    found_reflection = True
+            if not found_reflection:
+                return False
+        return True
 
     def incident_hyperplanes(self, x):
         """Return the supporting hyperplanes to x. There might be more efficient

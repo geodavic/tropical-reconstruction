@@ -1,4 +1,5 @@
 from scipy.spatial import ConvexHull
+from scipy.spatial.qhull import QhullError
 import numpy as np
 from copy import copy
 from tzlp import TZLP_Solver
@@ -22,11 +23,12 @@ class TropicalPolynomial:
         This uses monomials and coeffs to build a dictionary (`poly`)
         that represents the tropical polynomial. This class is atomic to `poly`.
 
-        TODO: make it atomic to poly in function (i.e. add @property where appropriate)
+        TODO: change `legendre` to something more correct
+              move as much of the tzlp stuff out as possible.
         """
         self.input_dim = len(monomials[0])
         self._set_poly(monomials, coeffs)
-        self.Qz = None  # if Newt(f) is a zonotope, this is the generator matrix (see self.zonotope())
+        self.Qz = None  # if Newt(f) is a zonotope, this is the generator matrix (see self.zonotope)
 
     def _set_poly(self, mons, coeffs):
         """Set the dictionary defining the tropical polynomial, asserting
@@ -42,55 +44,17 @@ class TropicalPolynomial:
             assert c > -np.infty, "Coefficients must be finite."
             assert c < np.infty, "Coefficients must be finite."
 
+        self.poly = self._zip(mons, coeffs)
+
+    def _zip(self, mons, coeffs):
+        """Create the poly dictionary, combining like terms."""
         poly = {}
         for m, c in zip(mons, coeffs):
             if m in poly:
                 poly[m] = max(c, poly[m])
             else:
                 poly[m] = c
-        self.poly = poly
-
-    def coef(self, mon):
-        """Retrieve the coefficient of the specified monomial."""
-        return self.poly.get(tuple(mon), -np.infty)
-
-    def copy(self):
-        """Return a copy of self."""
-        return TropicalPolynomial(list(self.poly.keys()), list(self.poly.values()))
-
-    def constant_term(self):
-        """Retrieve the constant term of the polynomial."""
-        mon = (0,) * self.input_dim
-        return self.coef(mon)
-
-    def power(self, alpha, lazy=False):
-        """Tropically raise f to a power.
-
-        lazy: bool
-            If true, returns a polynomial that is pointwise equal to f^alpha,
-            but isn't necessarily equal to f^alpha algebraically.
-
-        Note if alpha is not an integer, lazy must be true (otherwise
-        the power isn't well-defined)
-        """
-        new_poly = {}
-
-        isint = isinstance(alpha, int) or isinstance(alpha, np.int64)
-        if not isint and not lazy:
-            raise ValueError(
-                "Cannot lazily raise a tropical polynomial to a non-integer power (try passing lazy=True)"
-            )
-
-        if lazy:
-            for m, c in self.poly.items():
-                new_mon = tuple([alpha * i for i in m])
-                new_poly[new_mon] = c * alpha
-            return TropicalPolynomial(list(new_poly.keys()), list(new_poly.values()))
-        else:
-            g = self.copy()
-            for _ in range(alpha - 1):
-                g = self * g
-            return g
+        return poly
 
     def __add__(self, g):
         """Add another polynomial (tropically)."""
@@ -151,37 +115,101 @@ class TropicalPolynomial:
     def __len__(self):
         return len(self.poly)
 
+    def copy(self):
+        """Return a copy of self."""
+        return TropicalPolynomial(list(self.poly.keys()), list(self.poly.values()))
+
+    def simplify(self):
+        """Return a polynomial consisting of only active monomials. This is another
+        tropical polynomial that is pointwise equal to f.
+
+        Note: this implementation is imperfect when the number of vertices is small
+        (i.e. when the lifted newton polytop is not full dimensional) and in this case
+        this will simply return a copy of self.
+        """
+        try:
+            active_vertices = self.legendre_vertices
+            monomials = [tuple(m) for m in active_vertices[:, :-1]]
+            coeffs = active_vertices[:, -1]
+            return TropicalPolynomial(monomials, coeffs)
+        except QhullError:
+            return self.copy()
+
+    def coef(self, mon):
+        """Retrieve the coefficient of the specified monomial."""
+        return self.poly.get(tuple(mon), -np.infty)
+
+    @property
+    def constant_term(self):
+        """Retrieve the constant term of the polynomial."""
+        mon = (0,) * self.input_dim
+        return self.coef(mon)
+
+    def power(self, alpha, lazy=False):
+        """Tropically raise f to a power.
+
+        lazy: bool
+            If true, returns a polynomial that is pointwise equal to f^alpha,
+            but isn't necessarily equal to f^alpha algebraically.
+
+        Note if alpha is not an integer, lazy must be true (otherwise
+        the power isn't well-defined)
+        """
+        new_poly = {}
+
+        isint = isinstance(alpha, int) or isinstance(alpha, np.int64)
+        if not isint and not lazy:
+            raise ValueError(
+                "Cannot lazily raise a tropical polynomial to a non-integer power (try passing lazy=True)"
+            )
+
+        if lazy:
+            for m, c in self.poly.items():
+                new_mon = tuple([alpha * i for i in m])
+                new_poly[new_mon] = c * alpha
+            return TropicalPolynomial(list(new_poly.keys()), list(new_poly.values()))
+        else:
+            g = self.copy()
+            for _ in range(alpha - 1):
+                g = self * g
+            return g
+
+    @property
     def newton_polytope(self):
         """Return the Newton polytope."""
         pts = [np.array(m) for m, _ in self.poly.items()]
         P = Polytope(pts=pts)
         return P
 
+    @property
     def lifted_newton_polytope(self):
         """Return the lifted Newton polytope."""
         pts = [np.array(m + (c,)) for m, c in self.poly.items()]
         P = Polytope(pts=pts)
         return P
 
+    @property
     def legendre(self):
         """Return the legendre transform of the polynomial represented
         as a collection of hyperplanes.
         """
-        planes = self.lifted_newton_polytope().upper_hull
-        return planes
+        return self.lifted_newton_polytope.upper_hull
 
+    @property
     def legendre_vertices(self):
         """Return the vertices of the legendre transform (the vertices
         of the upper hull of the lifted newton polytopoe).
         """
-        return self.lifted_newton_polytope().upper_hull_vertices
-    
+        return self.lifted_newton_polytope.upper_hull_vertices
+
+    @property
     def dual_diagram(self):
-        """ Return the dual diagram of V(f), represented as the regular
+        """Return the dual diagram of V(f), represented as the regular
         subdivision of the lifted newton polytope of f.
         """
-        return self.lifted_newton_polytope().regular_subdivision
+        return self.lifted_newton_polytope.regular_subdivision
 
+    @property
     def zonotope(self):
         """Checks if the newton polytope of f is a zonotope. If yes,
         then return the generators of that zonotope. Otherwise return None.
@@ -192,8 +220,7 @@ class TropicalPolynomial:
             return self._get_zonotope()
 
     def _get_zonotope(self):
-        """Get the zonotope representation of Newt(f) (if it exists).
-        """
+        """Get the zonotope representation of Newt(f) (if it exists)."""
         Z = Zonotope(self.newton_polytope.pts)
         try:
             return Z.generators
@@ -204,12 +231,12 @@ class TropicalPolynomial:
         """Get the datum (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
         this polynomial.
         """
-        if self.zonotope() is not None:
-            upper_hull_vertices = self.legendre_vertices()
+        if self.zonotope is not None:
+            upper_hull_vertices = self.legendre_vertices
             U = [list(v) for v in upper_hull_vertices if sum(v[:-1])]
-            Qz = self.zonotope().astype(np.float64)
+            Qz = self.zonotope.astype(np.float64)
             d, n = Qz.shape
-            z0 = [0] * d + [self.constant_term()]
+            z0 = [0] * d + [self.constant_term]
             Epsilon = []
 
             subsets = all_subsets(n)
@@ -266,7 +293,7 @@ class TropicalPolynomial:
         """
         if self.input_dim > 1:
             QZ, c = self._solve_tzlp(verbose=verbose)
-            z0 = np.array([0] * (QZ.shape[0] - 1) + [self.constant_term()])
+            z0 = np.array([0] * (QZ.shape[0] - 1) + [self.constant_term])
             weights, thresholds = self._solve_algebraic_reconstruction(QZ, c, z0, b=b)
         else:
             raise NotImplementedError("Only implemented for (d,n,1) for d>1")
@@ -344,6 +371,7 @@ class PolynomialNeuralNetwork:
                 prod = P[0]
                 for p in P[1:]:
                     prod = prod * p
+                    prod = prod.simplify()
 
                 prod = prod + thresh
                 new_polys += [prod]
