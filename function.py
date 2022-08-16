@@ -2,7 +2,7 @@ from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
 import numpy as np
 from copy import copy
-from tzlp import TZLP_Solver
+from tzlp import solve_tzlp, solve_algebraic_reconstruction
 from polytope import Polytope, Zonotope, TOLERANCE
 
 from utils import all_subsets
@@ -24,7 +24,6 @@ class TropicalPolynomial:
         that represents the tropical polynomial. This class is atomic to `poly`.
 
         TODO: change `legendre` to something more correct
-              move as much of the tzlp stuff out as possible.
         """
         self.input_dim = len(monomials[0])
         self._set_poly(monomials, coeffs)
@@ -228,7 +227,7 @@ class TropicalPolynomial:
             return None
 
     def _get_tzlp_data(self):
-        """Get the datum (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
+        """Get the data (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
         this polynomial.
         """
         if self.zonotope is not None:
@@ -250,53 +249,26 @@ class TropicalPolynomial:
         else:
             return None
 
-    def _solve_tzlp(self, verbose=True):
-        data = self._get_tzlp_data()
-        Qz = np.array(data[0])
-        d, n = Qz.shape
-        if n <= d + 1:
-            print("Warning: n <= d+1, so assumptions of TZLP are not satisfied")
-        if data is not None:
-            tzlp = TZLP_Solver(*data)
-            sol = tzlp.solve(verbose=verbose, numpy=True)
-
-            if sol is not None:
-                x, c = sol
-                return (np.append(Qz, [x], axis=0), c)
-            else:
-                return None
-        else:
-            if verbose:
-                print("Newton polytope of this polynomial is not a zonotope.")
-            return None
-
-    def _solve_algebraic_reconstruction(self, QZ, c, z0, b=None):
-        """Solve the algebraic reconstruction problem given a solution (Q_Z,c,z_0)
-        to the geometric reconstruction problem.
-        """
-        if b is None:
-            b = np.ones(QZ.shape[1])
-
-        A1 = np.array([r / b for r in QZ[:-1]]).T
-        A2 = np.array([b])
-        t1 = -QZ[-1] / b
-        t2 = np.array([z0[-1]])
-        return [A1, A2], [t1, t2]
-
-    def neural_network(self, b=None, verbose=True):
+    def neural_network(self, b=None, verbose=False):
         """Return a (d,n,1) NeuralNetwork representation of f, is possible. This solves the
         TZLP associated to f, and then the algebraic reconstruction problem.
 
-        TODO: allow for different architectures.
-
-        TODO: the t^2 term is wrong when going NN -> f -> NN', but NN = NN' pointwise still ..?
+        TODO: allow for d=1 architectures.
         """
-        if self.input_dim > 1:
-            QZ, c = self._solve_tzlp(verbose=verbose)
-            z0 = np.array([0] * (QZ.shape[0] - 1) + [self.constant_term])
-            weights, thresholds = self._solve_algebraic_reconstruction(QZ, c, z0, b=b)
-        else:
+        if self.input_dim == 1:
             raise NotImplementedError("Only implemented for (d,n,1) for d>1")
+
+        data = self._get_tzlp_data()
+        if data is None:
+            raise Exception("Unable to express the Newton polytope of f as a zonotope")
+
+        sol = solve_tzlp(data, verbose=verbose)
+        if sol is None:
+            raise Exception("Unable to solve TZLP")
+
+        QZ, c = sol
+        z0 = np.array([0] * (QZ.shape[0] - 1) + [self.constant_term])
+        weights, thresholds = solve_algebraic_reconstruction(QZ, c, z0, b=b)
 
         return PolynomialNeuralNetwork(weights, thresholds)
 
