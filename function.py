@@ -222,7 +222,7 @@ class TropicalPolynomial:
         """Get the zonotope representation of Newt(f) (if it exists)."""
         Z = Zonotope(pts=self.newton_polytope.pts)
         try:
-            return Z.generators
+            return Z.generators.T
         except:
             return None
 
@@ -245,8 +245,12 @@ class TropicalPolynomial:
                     if np.sum(np.abs(Qz @ eps - m)) < TOLERANCE:
                         Epsilon.append(eps)
                         break
+            if len(Epsilon) != len(U):
+                print("Warning: some vertices of the upper hull do not project to cubical vertices of the newton polytope. The TZLP is not well-posed.")
+                return None
             return Qz.tolist(), U, z0, Epsilon
         else:
+            print("Unable to express the Newton polytope of f as a zonotope")
             return None
 
     def neural_network(self, b=None, verbose=False):
@@ -260,11 +264,11 @@ class TropicalPolynomial:
 
         data = self._get_tzlp_data()
         if data is None:
-            raise Exception("Unable to express the Newton polytope of f as a zonotope")
+            raise Exception()
 
         sol = solve_tzlp(data, verbose=verbose)
         if sol is None:
-            raise Exception("Unable to solve TZLP")
+            raise Exception("Could not set up TZLP.")
 
         QZ, c = sol
         z0 = np.array([0] * (QZ.shape[0] - 1) + [self.constant_term])
@@ -303,6 +307,23 @@ class PolynomialNeuralNetwork:
                 t
             ), "At least one pair (A,t) of weights and thresholds are dimensionally incompatible"
 
+    @property
+    def architecture(self):
+        """ Return the architecture tuple
+        """
+        arch = (self.input_dim,)
+        for w in self.weights:
+            arch = arch + (len(w),)
+        return arch
+
+    @property
+    def complexity(self):
+        """ Return number of parameters.
+        """
+        weights_complexity = sum([w.size for w in self.weights])
+        thresh_complexity = sum([t.size for t in self.thresholds])
+        return weights_complexity + thresh_complexity
+    
     def component(self, i):
         """Return a neural network function which is the ith component
         of the current network.
@@ -380,7 +401,7 @@ def test_equal(f1, f2, input_dim, n_samples=10000):
     """
     for _ in range(n_samples):
         x = 1000 * np.random.rand(input_dim) - 500
-        if abs(f1(x) - f2(x)) > 1e-10:
+        if abs(f1(x) - f2(x)) > 1e-8:
             print(f"Failed at x = {x}")
             return False
     return True
