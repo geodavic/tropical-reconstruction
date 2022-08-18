@@ -1,7 +1,9 @@
 import numpy as np
+import math
 from scipy.spatial import ConvexHull
 
 TOLERANCE = 1e-12
+TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
 
 def cube(n):
@@ -20,7 +22,7 @@ def random_zonotope(n, d, scale=None):
         scale = np.sqrt(1 / n)
 
     Az = scale * np.random.rand(n, d)
-    Z = Zonotope(Az)
+    Z = Zonotope(generators=Az)
     return Z
 
 
@@ -222,7 +224,7 @@ class Zonotope(Polytope):
     def __init__(self, generators=None, pts=None):
 
         self._generators = generators
-        if not pts:
+        if pts is None:
             assert (
                 generators is not None
             ), "If not passing points, must pass generators to construct Zonotope."
@@ -243,9 +245,25 @@ class Zonotope(Polytope):
 
     def _get_generators(self):
         """Compute the generators from self.polytope.
-        This is somewhat nontrivial.
+        This is somewhat nontrivial for higher dimensions.
         """
-        raise NotImplementedError
+        if not self.is_centrally_symmetric:
+            print("Polytope not centrally symmetric, can't compute zonotope generators")
+            return None
+
+        if self.dim == 2:
+            # For 2d, vertices of a ConvexHull object are in counterclockwise
+            # order, so just take the successive differences to get generators.
+            generators = []
+            for i in range(len(self.vertices)-1):
+                g = self.vertices[i+1]-self.vertices[i]
+                g *= np.sign(g[0])
+                generators.append(g)
+            generators = np.array(generators)
+            return np.unique(generators.round(decimals=TOLERANCE_DIGITS),axis=0)
+                    
+        else:
+            raise NotImplementedError
 
     def reflected_pt(self, idx):
         """Return the index of the vertex across from the barycenter"""

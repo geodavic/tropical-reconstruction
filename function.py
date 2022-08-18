@@ -220,7 +220,7 @@ class TropicalPolynomial:
 
     def _get_zonotope(self):
         """Get the zonotope representation of Newt(f) (if it exists)."""
-        Z = Zonotope(self.newton_polytope.pts)
+        Z = Zonotope(pts=self.newton_polytope.pts)
         try:
             return Z.generators
         except:
