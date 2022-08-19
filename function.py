@@ -395,13 +395,14 @@ class PolynomialNeuralNetwork:
         return ret
 
 
-def test_equal(f1, f2, input_dim, n_samples=10000):
+def test_equal(f1, f2, input_dim, n_samples=10000, size=500):
     """Test if two functions are equal pointwise by checking a bunch of
     random points inside [-500,500]^d.
     """
     for _ in range(n_samples):
-        x = 1000 * np.random.rand(input_dim) - 500
-        if abs(f1(x) - f2(x)) > 1e-8:
-            print(f"Failed at x = {x}")
+        x = 2*size * np.random.rand(input_dim) - size
+        diff = abs(f1(x) - f2(x))
+        if diff > 1e-8:
+            print(f"Failed at x = {x} (difference of {diff})")
             return False
     return True
