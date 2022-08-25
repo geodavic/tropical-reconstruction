@@ -106,8 +106,9 @@ class RandomNeuralNetwork:
     inside [0,MAX] and thresholds are chosen uniformly in [-MAX/2,MAX/2].
     """
 
-    def __init__(self, architecture):
-        self.MAX = 10 / len(architecture)
+    def __init__(self, architecture, MAX=None, integer=False):
+        self.MAX = MAX or 10 / len(architecture)
+        self.integer = integer
         self.set_params(architecture)
 
     def set_params(self, architecture):
@@ -115,7 +116,10 @@ class RandomNeuralNetwork:
         thresholds = []
         for L, K in zip(architecture, architecture[1:]):
             A = self.MAX * np.random.rand(K, L)
-            t = 2 * self.MAX * np.random.rand(K)
+            t = 2 * self.MAX * np.random.rand(K) - self.MAX
+            if self.integer:
+                A = A.round(decimals=0)
+                t = t.round(decimals=0)
             weights.append(A)
             thresholds.append(t)
         self.NN = PolynomialNeuralNetwork(weights, thresholds)
