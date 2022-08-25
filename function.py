@@ -6,6 +6,7 @@ from tzlp import solve_tzlp, solve_algebraic_reconstruction
 from polytope import Polytope, Zonotope, TOLERANCE
 
 from utils import all_subsets
+from draw import draw_polytope
 
 
 class TropicalPolynomial:
@@ -56,7 +57,10 @@ class TropicalPolynomial:
         return poly
 
     def __add__(self, g):
-        """Add another polynomial (tropically)."""
+        """Add another polynomial (tropically).
+
+        TODO: handle floats and ints
+        """
         if not isinstance(g, TropicalPolynomial):
             g = TropicalPolynomial([(0,) * self.input_dim], [g])
 
@@ -66,7 +70,10 @@ class TropicalPolynomial:
         return TropicalPolynomial(new_mons, new_coefs)
 
     def __mul__(self, g):
-        """Multiply by another polynomial (tropically)."""
+        """Multiply by another polynomial (tropically).
+
+        TODO: handle floats and ints
+        """
         new_poly = {}
 
         # Handle monomial case as base case
@@ -88,6 +95,10 @@ class TropicalPolynomial:
         for s in summands[1:]:
             product += s
         return product
+
+    def __rmul__(self, g):
+        """Same as __mul__ (tropical semiring is commutative)"""
+        return self.__mul__(g)
 
     def __eq__(self, g):
         """Check if f is equal to g algebraically (i.e. they have identical
@@ -226,7 +237,7 @@ class TropicalPolynomial:
         except:
             return None
 
-    def _get_tzlp_data(self):
+    def _get_tzlp_data(self, verbose=True):
         """Get the data (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
         this polynomial.
         """
@@ -246,11 +257,15 @@ class TropicalPolynomial:
                         Epsilon.append(eps)
                         break
             if len(Epsilon) != len(U):
-                print("Warning: some vertices of the upper hull do not project to cubical vertices of the newton polytope. The TZLP is not well-posed.")
+                if verbose:
+                    print(
+                        "Warning: some vertices of the upper hull do not project to cubical vertices of the newton polytope. The TZLP is not well-posed."
+                    )
                 return None
             return Qz.tolist(), U, z0, Epsilon
         else:
-            print("Unable to express the Newton polytope of f as a zonotope")
+            if verbose:
+                print("Unable to express the Newton polytope of f as a zonotope")
             return None
 
     def neural_network(self, b=None, verbose=False):
@@ -262,7 +277,7 @@ class TropicalPolynomial:
         if self.input_dim == 1:
             raise NotImplementedError("Only implemented for (d,n,1) for d>1")
 
-        data = self._get_tzlp_data()
+        data = self._get_tzlp_data(verbose=verbose)
         if data is None:
             raise Exception()
 
@@ -309,8 +324,7 @@ class PolynomialNeuralNetwork:
 
     @property
     def architecture(self):
-        """ Return the architecture tuple
-        """
+        """Return the architecture tuple"""
         arch = (self.input_dim,)
         for w in self.weights:
             arch = arch + (len(w),)
@@ -318,12 +332,11 @@ class PolynomialNeuralNetwork:
 
     @property
     def complexity(self):
-        """ Return number of parameters.
-        """
+        """Return number of parameters."""
         weights_complexity = sum([w.size for w in self.weights])
         thresh_complexity = sum([t.size for t in self.thresholds])
         return weights_complexity + thresh_complexity
-    
+
     def component(self, i):
         """Return a neural network function which is the ith component
         of the current network.
@@ -345,7 +358,7 @@ class PolynomialNeuralNetwork:
 
         return PolynomialNeuralNetwork(new_weights, new_thresh)
 
-    def tropical(self):
+    def tropical(self, verbose=False):
         """Return the associated tropical polynomial(s) to the network."""
 
         # View the coordinate functions (xi) as tropical polynomials
@@ -366,6 +379,11 @@ class PolynomialNeuralNetwork:
                     prod = prod * p
                     prod = prod.simplify()
 
+                if verbose:
+                    if prod.constant_term == (prod + thresh).constant_term:
+                        print(f" - (threshold at layer {L} did nothing)")
+                    else:
+                        print(f" x (threshold at layer {L} did something)")
                 prod = prod + thresh
                 new_polys += [prod]
 
@@ -400,7 +418,7 @@ def test_equal(f1, f2, input_dim, n_samples=10000, size=500):
     random points inside [-500,500]^d.
     """
     for _ in range(n_samples):
-        x = 2*size * np.random.rand(input_dim) - size
+        x = 2 * size * np.random.rand(input_dim) - size
         diff = abs(f1(x) - f2(x))
         if diff > 1e-8:
             print(f"Failed at x = {x} (difference of {diff})")

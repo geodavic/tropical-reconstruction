@@ -78,6 +78,31 @@ class Polytope:
         else:
             self.hull = hull
 
+    def __add__(self, Q):
+        """Minkowski sum"""
+        new_pts = []
+        assert isinstance(Q, Polytope), "Can only Minkowski add Polytope objects"
+        for p1 in self.vertices:
+            for p2 in Q.vertices:
+                new_pts += [p1 + p2]
+        return self.__class__(pts=new_pts)
+
+    def __mul__(self, a):
+        """Multiply by a scalar"""
+        new_pts = []
+        for pt in self.pts:
+            new_pts.append(a * pt)
+        return self.__class__(pts=new_pts)
+
+    def __rmul__(self, a):
+        """Same as __mul__"""
+        return self.__mul__(a)
+
+    def update(self, new_pts):
+        """Add `new_pts` to self.pts"""
+        new_pts = np.append(self.pts, new_pts, axis=0)
+        return self.Polytope(pts=new_pts)
+
     @property
     def vertices(self):
         return self.pts[self.hull.vertices]
@@ -217,6 +242,11 @@ class Polytope:
         else:
             return Polytope(pts=new_pts)
 
+    def project(self):
+        """Project P away from its last component."""
+        new_pts = self.pts[:, :-1]
+        return self.__class__(pts=new_pts)
+
 
 class Zonotope(Polytope):
     """A zonotope in V representation."""
@@ -255,13 +285,13 @@ class Zonotope(Polytope):
             # For 2d, vertices of a ConvexHull object are in counterclockwise
             # order, so just take the successive differences to get generators.
             generators = []
-            for i in range(len(self.vertices)-1):
-                g = self.vertices[i+1]-self.vertices[i]
+            for i in range(len(self.vertices) - 1):
+                g = self.vertices[i + 1] - self.vertices[i]
                 g *= np.sign(g[0])
                 generators.append(g)
             generators = np.array(generators)
-            return np.unique(generators.round(decimals=TOLERANCE_DIGITS),axis=0)
-                    
+            return np.unique(generators.round(decimals=TOLERANCE_DIGITS), axis=0)
+
         else:
             raise NotImplementedError
 
