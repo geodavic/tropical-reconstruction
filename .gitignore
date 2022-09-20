@@ -2,3 +2,5 @@ __pycache__/*
 template.py
 draw.py
 *.svg
+*.png
+*.mp4
