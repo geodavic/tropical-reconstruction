@@ -1,19 +1,10 @@
 import numpy as np
 import math
 from scipy.spatial import ConvexHull
+from utils import all_subsets
 
 TOLERANCE = 1e-12
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
-
-
-def cube(n):
-    """Return vertices of unit cube in R^n."""
-    subsets = []
-    for i in range(2 ** n):
-        L = list(bin(i)[2:])
-        L = [0] * (n - len(L)) + [int(l) for l in L]
-        subsets += [L]
-    return np.array(subsets)
 
 
 def random_zonotope(n, d, scale=None):
@@ -33,6 +24,42 @@ def random_polytope(k, d, scale=1):
     pts = scale * np.random.rand(k, d)
     P = Polytope(pts=pts)
     return P
+
+def zonotope_generators_from_vertices(vert):
+    """Compute the Zonotope generators of a convex hull vertices.
+    This is somewhat nontrivial for higher dimensions.
+    """
+    if not is_centrally_symmetric(vert):
+        print("Polytope not centrally symmetric, can't compute zonotope generators")
+        return None
+
+    if len(vert[0]) == 2:
+        # For 2d, vertices of a ConvexHull object are in counterclockwise
+        # order, so just take the successive differences to get generators.
+        generators = []
+        for i in range(len(vert) - 1):
+            g = vert[i + 1] - vert[i]
+            g *= np.sign(g[0])
+            generators.append(g)
+        generators = np.array(generators)
+        return np.unique(generators.round(decimals=TOLERANCE_DIGITS), axis=0)
+
+    else:
+        raise NotImplementedError
+
+def is_centrally_symmetric(vert,tolerance=TOLERANCE):
+    """Check if a hull is centrally symmetric."""
+    barycenter = np.sum(vert, axis=0) / len(vert)
+    for pt1 in vert:
+        ref = 2 * barycenter - pt1
+        found_reflection = False
+        for pt2 in vert:
+            err = np.abs(pt2 - ref)
+            if max(err) < tolerance:
+                found_reflection = True
+        if not found_reflection:
+            return False
+    return True
 
 
 class Halfspace:
@@ -157,17 +184,7 @@ class Polytope:
 
     @property
     def is_centrally_symmetric(self):
-        """Check if P is centrally symmetric."""
-        for pt1 in self.vertices:
-            ref = 2 * self.barycenter - pt1
-            found_reflection = False
-            for pt2 in self.vertices:
-                err = np.abs(pt2 - ref)
-                if max(err) < self.tolerance:
-                    found_reflection = True
-            if not found_reflection:
-                return False
-        return True
+        return is_centrally_symmetric(self.vertices, self.tolerance)
 
     def incident_hyperplanes(self, x):
         """Return the supporting hyperplanes to x. There might be more efficient
@@ -204,6 +221,13 @@ class Polytope:
         else:
             raise ValueError("Passed point is not a point of P")
 
+    def get_facet_generators(self, facet_eq):
+        gens = []
+        for idx,g in enumerate(self.generators):
+            if abs(facet_eq.a@g) <= facet_eq.tolerance:
+                gens += [idx] 
+        return gens
+
     def bounds(self):
         """Return the max and min values of all coordinates in P."""
         maxs = [-np.infty for _ in range(self.dim)]
@@ -224,11 +248,12 @@ class Polytope:
         self.hull = ConvexHull(self.pts)
 
     def sym(self, O=None):
-        """Symmetrize P by taking the reflection of all vertices
-        about O and including those in the convex hull. If dim=2,
-        this will return a zonotope. (In general centrally symmetric
-        bodies in dim>2 aren't necessarily zonotopes).
+        """ 
+        Compute smallest zonotope containing P about the point O.
         """
+        if self.dim > 2:
+            raise NotImplementedError
+
         if O is None:
             O = self.barycenter
 
@@ -237,10 +262,7 @@ class Polytope:
         for pt in self.pts:
             new_pts += [pt, reflect(pt)]
 
-        if self.dim == 2:
-            return Zonotope(pts=new_pts)
-        else:
-            return Polytope(pts=new_pts)
+        return Zonotope(pts=new_pts)
 
     def project(self):
         """Project P away from its last component."""
@@ -249,19 +271,49 @@ class Polytope:
 
 
 class Zonotope(Polytope):
-    """A zonotope in V representation."""
+    """A zonotope in V representation or affine representation.
 
-    def __init__(self, generators=None, pts=None):
+    Either pass (generators,mu), which is the affine representation
+    of Z (i.e. the affine map for which the image is Z) or pts,
+    a collection of points whose convex hull is a zonotope.
+    """
 
-        self._generators = generators
-        if pts is None:
-            assert (
-                generators is not None
-            ), "If not passing points, must pass generators to construct Zonotope."
-            pts = np.array([(self.generators).T @ e for e in cube(self.rank)])
-        Z = ConvexHull(pts)
+    def __init__(self, generators=None, mu=None, pts=None):
 
-        super().__init__(hull=Z)
+        self._generators = None
+
+        if generators is not None:
+            if mu is None:
+                mu = np.zeros(len(generators[0]))
+            self._generators = generators
+        elif pts is not None:
+            mu = None
+            vert = Polytope(pts=pts).vertices
+            self._generators = zonotope_generators_from_vertices(vert)
+        else:
+            raise Exception("Must pass either `generators` or `pts`")
+        
+        self._pts_subsets = all_subsets(self.rank)
+        if mu is None:
+            # Find offset mu (this is a bit of a hack?)
+            _cubical_vert = np.array([(self.generators).T @ e for e in self.pts_subsets])
+            mu = -sum(_cubical_vert)/len(_cubical_vert) + sum(vert)/len(vert)
+
+        self.mu = mu
+        cubical_vert = np.array([(self.generators).T @ e + mu for e in self.pts_subsets])
+        hull = ConvexHull(cubical_vert)
+
+        super().__init__(hull=hull)
+
+    def update(self, new_pts):
+        """ Must override parent class, since instances of this class should be immutable.
+        """
+        raise NotImplementedError
+
+    def translate(self, v):
+        """ Must override parent class, since instances of this class should be immutable.
+        """
+        raise NotImplementedError
 
     @property
     def generators(self):
@@ -270,30 +322,39 @@ class Zonotope(Polytope):
         return self._generators
 
     @property
+    def pts_subsets(self):
+        if self._pts_subsets is None:
+            self._pts_subsets = self._get_pts_subsets()
+        return self._pts_subsets
+
+    @property
     def rank(self):
         return len(self.generators)
 
-    def _get_generators(self):
-        """Compute the generators from self.polytope.
-        This is somewhat nontrivial for higher dimensions.
+    def _get_pts_subsets(self):
+        """ Take cubical vertices and return the vertices 
+        of the n-cube they correspond to. Can be optimized probably.
         """
-        if not self.is_centrally_symmetric:
-            print("Polytope not centrally symmetric, can't compute zonotope generators")
-            return None
+        error = Exception(f"Error: passed cubical vertices not in bijection with vertices of a {self.rank}-cube.")
+        pts_subsets = []
+        subsets = all_subsets(self.rank)
 
-        if self.dim == 2:
-            # For 2d, vertices of a ConvexHull object are in counterclockwise
-            # order, so just take the successive differences to get generators.
-            generators = []
-            for i in range(len(self.vertices) - 1):
-                g = self.vertices[i + 1] - self.vertices[i]
-                g *= np.sign(g[0])
-                generators.append(g)
-            generators = np.array(generators)
-            return np.unique(generators.round(decimals=TOLERANCE_DIGITS), axis=0)
+        for pt in self.pts:
+            found_subset = False
+            for i,s in enumerate(subsets):
+                cand = sum([self.generators[j] for j in range(len(s)) if s[j]])
+                if np.linalg.norm(cand-pt) < TOLERANCE:
+                    found_subset = True
+                    pts_subsets += [s]
+                    break
 
-        else:
-            raise NotImplementedError
+            if not found_subset:
+                raise error
+
+        return pts_subsets
+
+    def _get_generators(self):
+        return zonotope_generators_from_vertices(self.vertices)
 
     def reflected_pt(self, idx):
         """Return the index of the vertex across from the barycenter"""
@@ -313,6 +374,9 @@ class Zonotope(Polytope):
         when the dimension exceeds 2. This should only be used when the
         dimension is 2.
         """
+
+        # Disabling this for now, since instances can't handle mutability atm.
+        raise NotImplementedError 
 
         if self.dim != 2:
             Warning(
