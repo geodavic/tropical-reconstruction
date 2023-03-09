@@ -24,10 +24,25 @@ class ZonotopeGradient:
 class ZonotopePointGradient(ZonotopeGradient):
     """
     Point gradient class for a Zonotope.
+
+    In this case, the control point is a vertex of the zonotope.
     """
 
     def __init__(self, zonotope, pt_subset, normal_vec):
         """
+        Parameters
+        ----------
+
+        zonotope: Zonotope
+            The zonotope being optimized (current best guess)
+        pt_subset: list
+            List of generator indices such that the sum of the
+            corresponding generators is the control point.
+        normal_vec: np.ndarray
+            Direction that control point is to be moved. This is
+            the normal vector of the target polytope face P on
+            which the target point lies.
+
         Note: normal_vec should be the outward normal, not inward.
         """
         self.pt_subset = pt_subset
@@ -59,6 +74,18 @@ class ZonotopeFacetGradient(ZonotopeGradient):
     """
 
     def __init__(self, zonotope, pt_subset, face_subset, v):
+        """
+        Parameters
+        ----------
+
+        pt_subset: list
+            Subset of indices of generators corresponding to a vertex
+            on the target face (the smallest point on which the target 
+            point lies). 
+        face_subset: list
+            Subset of indices of generators corresponding to the target
+            face.
+        """
         super().__init__(zonotope)
         self.pt_subset = pt_subset
         self.face_subset = face_subset

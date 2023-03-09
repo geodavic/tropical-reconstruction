@@ -32,7 +32,7 @@ def approximate_by_zonotope(
     if animate:
         frame_size = (1000, 1000)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter("out.mp4", fourcc, 10, frame_size)
+        out = cv2.VideoWriter("vid/out.mp4", fourcc, 10, frame_size)
 
     for _ in range(steps):
         dist, p, q = hausdorff_distance(opt.P, opt.Z, full=False, metric=METRIC)
@@ -47,8 +47,8 @@ def approximate_by_zonotope(
             return opt.Z
         opt.print(f"step: {_}, distance: {dist}")
         if animate:
-            render_polytopes_close_ties(opt.P, opt.Z, name=f"frame.png")
-            img = cv2.imread("frame.png")
+            render_polytopes_close_ties(opt.P, opt.Z, name=f"img/frame.png")
+            img = cv2.imread("img/frame.png")
             img = cv2.resize(img, frame_size)
             out.write(img)
     if animate:
