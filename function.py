@@ -390,8 +390,7 @@ class PolynomialNeuralNetwork:
             polys = new_polys
 
         # In depth two case, manually set the zonotope generators,
-        # since we know them a-priori. In other depths, this would be
-        # invalid since the newton polytope is not necessarily a Zonotope
+        # since we know them a-priori.
         if self.depth == 2:
             for j, f in enumerate(polys):
                 A = self.weights[0]

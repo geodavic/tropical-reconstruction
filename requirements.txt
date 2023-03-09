@@ -2,3 +2,7 @@ numpy
 scipy
 sympy
 tqdm
+qpsolvers
+matplotlib
+opencv-python
+osqp

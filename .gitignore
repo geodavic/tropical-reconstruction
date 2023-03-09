@@ -1,6 +1,7 @@
 __pycache__/*
 template.py
 draw.py
+_3dtester.py
 *.svg
 *.png
 *.mp4

@@ -1,9 +1,9 @@
 import numpy as np
 import math
 from scipy.spatial import ConvexHull
-from utils import all_subsets
+from utils import all_subsets, binary_to_subset
 
-TOLERANCE = 1e-12
+TOLERANCE = 1e-5
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
 
@@ -24,6 +24,7 @@ def random_polytope(k, d, scale=1):
     pts = scale * np.random.rand(k, d)
     P = Polytope(pts=pts)
     return P
+
 
 def zonotope_generators_from_vertices(vert):
     """Compute the Zonotope generators of a convex hull vertices.
@@ -47,7 +48,8 @@ def zonotope_generators_from_vertices(vert):
     else:
         raise NotImplementedError
 
-def is_centrally_symmetric(vert,tolerance=TOLERANCE):
+
+def is_centrally_symmetric(vert, tolerance=TOLERANCE):
     """Check if a hull is centrally symmetric."""
     barycenter = np.sum(vert, axis=0) / len(vert)
     for pt1 in vert:
@@ -131,6 +133,10 @@ class Polytope:
         return self.Polytope(pts=new_pts)
 
     @property
+    def radius(self):
+        return max([np.linalg.norm(self.barycenter - v) for v in self.vertices])
+
+    @property
     def vertices(self):
         return self.pts[self.hull.vertices]
 
@@ -208,24 +214,30 @@ class Polytope:
             return True
 
         # approximately a vertex:
-        if len(self.incident_hyperplanes(x)) >= self.dim:
-            return True
+        # if len(self.incident_hyperplanes(x)) >= self.dim:
+        #    return True
+        for v in self.vertices:
+            if np.linalg.norm(v - x) <= self.tolerance:
+                return True
 
         return False
 
-    def get_pt_idx(self, x):
-        """Get index of vertex x in P."""
+    def get_pt_idx(self, x, force=False):
+        """Get index of x in self.pts"""
         dists = [np.linalg.norm(p - x) for p in self.pts]
+        if force:
+            return np.argmin(dists)
+
         if np.min(dists) < self.tolerance:
             return np.argmin(dists)
         else:
-            raise ValueError("Passed point is not a point of P")
+            raise ValueError("Passed point is not a point of polytope")
 
     def get_facet_generators(self, facet_eq):
         gens = []
-        for idx,g in enumerate(self.generators):
-            if abs(facet_eq.a@g) <= facet_eq.tolerance:
-                gens += [idx] 
+        for idx, g in enumerate(self.generators):
+            if abs(facet_eq.a @ g) <= facet_eq.tolerance:
+                gens += [idx]
         return gens
 
     def bounds(self):
@@ -248,7 +260,7 @@ class Polytope:
         self.hull = ConvexHull(self.pts)
 
     def sym(self, O=None):
-        """ 
+        """
         Compute smallest zonotope containing P about the point O.
         """
         if self.dim > 2:
@@ -279,7 +291,6 @@ class Zonotope(Polytope):
     """
 
     def __init__(self, generators=None, mu=None, pts=None):
-
         self._generators = None
 
         if generators is not None:
@@ -292,28 +303,32 @@ class Zonotope(Polytope):
             self._generators = zonotope_generators_from_vertices(vert)
         else:
             raise Exception("Must pass either `generators` or `pts`")
-        
+
         self._pts_subsets = all_subsets(self.rank)
         if mu is None:
             # Find offset mu (this is a bit of a hack?)
-            _cubical_vert = np.array([(self.generators).T @ e for e in self.pts_subsets])
-            mu = -sum(_cubical_vert)/len(_cubical_vert) + sum(vert)/len(vert)
+            _cubical_vert = np.array(
+                [(self.generators).T @ e for e in self._pts_subsets]
+            )
+            mu = -sum(_cubical_vert) / len(_cubical_vert) + sum(vert) / len(vert)
 
         self.mu = mu
-        cubical_vert = np.array([(self.generators).T @ e + mu for e in self.pts_subsets])
+        cubical_vert = np.array(
+            [(self.generators).T @ e + mu for e in self._pts_subsets]
+        )
         hull = ConvexHull(cubical_vert)
 
         super().__init__(hull=hull)
 
     def update(self, new_pts):
-        """ Must override parent class, since instances of this class should be immutable.
-        """
+        """Must override parent class, since instances of this class should be immutable."""
         raise NotImplementedError
 
     def translate(self, v):
-        """ Must override parent class, since instances of this class should be immutable.
-        """
-        raise NotImplementedError
+        """Must override parent class, since instances of this class should be immutable."""
+        generators = np.copy(self.generators)
+        mu = np.copy(self.mu)
+        return Zonotope(generators=generators, mu=mu + v)
 
     @property
     def generators(self):
@@ -321,29 +336,33 @@ class Zonotope(Polytope):
             self._generators = self._get_generators()
         return self._generators
 
-    @property
-    def pts_subsets(self):
+    def pts_subsets(self, i, binary=True):
         if self._pts_subsets is None:
             self._pts_subsets = self._get_pts_subsets()
-        return self._pts_subsets
+        rval = self._pts_subsets[i]
+        if not binary:
+            rval = binary_to_subset(rval)
+        return rval
 
     @property
     def rank(self):
         return len(self.generators)
 
     def _get_pts_subsets(self):
-        """ Take cubical vertices and return the vertices 
+        """Take cubical vertices and return the vertices
         of the n-cube they correspond to. Can be optimized probably.
         """
-        error = Exception(f"Error: passed cubical vertices not in bijection with vertices of a {self.rank}-cube.")
+        error = Exception(
+            f"Error: passed cubical vertices not in bijection with vertices of a {self.rank}-cube."
+        )
         pts_subsets = []
         subsets = all_subsets(self.rank)
 
         for pt in self.pts:
             found_subset = False
-            for i,s in enumerate(subsets):
+            for i, s in enumerate(subsets):
                 cand = sum([self.generators[j] for j in range(len(s)) if s[j]])
-                if np.linalg.norm(cand-pt) < TOLERANCE:
+                if np.linalg.norm(cand - pt) < TOLERANCE:
                     found_subset = True
                     pts_subsets += [s]
                     break
@@ -375,16 +394,13 @@ class Zonotope(Polytope):
         dimension is 2.
         """
 
-        # Disabling this for now, since instances can't handle mutability atm.
-        raise NotImplementedError 
-
         if self.dim != 2:
             Warning(
                 "Calling method `move_pt()` in dimensions greater than 2 will likely cause the Zonotope not to be a zonotope anymore"
             )
 
         if np.linalg.norm(v) == 0:
-            return
+            return self
 
         self._generators = None  # generators have to be recomputed
         reflected_idx = self.reflected_pt(idx)
@@ -394,5 +410,26 @@ class Zonotope(Polytope):
         self.pts[idx] += v
         # symmetrize
         self.pts[reflected_idx] = 2 * barycenter - self.pts[idx]
-        self.hull = ConvexHull(self.vertices)  # to not increase rank
-        # self.hull = ConvexHull(self.pts) # might increase or decrease rank
+
+        # return Zonotope(pts=self.vertices)
+        return Zonotope(pts=self.pts)
+
+
+class BalancedZonotope(Zonotope):
+    """A balanced zonotope (image of cube in R^n whose vertices are
+    \pm 1 valued not (0,1) valued.)"""
+
+    def __init__(self, generators, mu=None):
+        if mu is None:
+            mu = np.zeros(len(generators[0]))
+        self.mu = mu
+        self._generators = generators
+
+        self._pts_subsets = all_subsets(self.rank)
+
+        cubical_vert = np.array(
+            [(self.generators).T @ e + mu for e in self._pts_subsets]
+        )
+        hull = ConvexHull(cubical_vert)
+
+        super().__init__(hull=hull)
