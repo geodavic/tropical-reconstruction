@@ -1,7 +1,7 @@
 import numpy as np
-from tzlp import TZLP_Solver
-from utils import test_tzlp, generate_witness, generate_LP_example
-from function import TropicalPolynomial, PolynomialNeuralNetwork, test_equal
+from tropical_reconstruction.tzlp import TZLP_Solver
+from tropical_reconstruction.utils import test_tzlp, generate_witness, generate_LP_example
+from tropical_reconstruction.function import TropicalPolynomial, PolynomialNeuralNetwork, test_equal
 
 
 def clean_float(fl):
