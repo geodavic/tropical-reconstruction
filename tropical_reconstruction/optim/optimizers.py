@@ -1,7 +1,7 @@
-from hausdorff import hausdorff_distance
-from polytope import Polytope, Zonotope, random_zonotope, random_polytope
-from gradient import ZonotopePointGradient, ZonotopeFacetGradient
-from draw import render_polytopes, render_polytopes_close_ties
+from tropical_reconstruction.metrics import hausdorff_distance
+from tropical_reconstruction.polytope import Polytope, Zonotope, random_zonotope, random_polytope
+from tropical_reconstruction.optim.gradient import ZonotopePointGradient, ZonotopeFacetGradient
+from tropical_reconstruction.utils.draw import render_polytopes, render_polytopes_close_ties
 import numpy as np
 import cv2
 

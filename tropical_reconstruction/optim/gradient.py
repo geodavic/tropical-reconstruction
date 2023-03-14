@@ -3,8 +3,8 @@ import sympy as sp
 from sympy.core.numbers import Number
 from sympy import Integer
 from sympy.core import Expr
-from polytope import Zonotope
-from utils import all_subsets
+from tropical_reconstruction.polytope import Zonotope
+from tropical_reconstruction.utils import all_subsets
 
 
 class ZonotopeGradient:

@@ -2,11 +2,11 @@ from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
 import numpy as np
 from copy import copy
-from tzlp import solve_tzlp, solve_algebraic_reconstruction
-from polytope import Polytope, Zonotope, TOLERANCE
+from tropical_reconstruction.tzlp import solve_tzlp, solve_algebraic_reconstruction
+from tropical_reconstruction.polytope import Polytope, Zonotope, TOLERANCE
 
-from utils import all_subsets
-from draw import draw_polytope
+from tropical_reconstruction.utils import all_subsets
+from tropical_reconstruction.utils.draw import draw_polytope
 
 
 class TropicalPolynomial:

@@ -3,7 +3,7 @@ from scipy.optimize import linprog
 from qpsolvers import solve_qp
 import numpy as np
 import scipy as sp
-from utils import unit_ball
+from tropical_reconstruction.utils import unit_ball
 
 
 def distance_to_polytope(x, P, metric=2):

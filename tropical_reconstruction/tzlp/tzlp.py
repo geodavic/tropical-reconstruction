@@ -1,11 +1,11 @@
 from scipy.spatial import ConvexHull
 from scipy.optimize import linprog
-from polytope import Polytope
+from tropical_reconstruction.polytope import Polytope
 from copy import copy, deepcopy
 import math
 import numpy as np
 
-from utils import all_subsets
+from tropical_reconstruction.utils import all_subsets
 
 
 def solve_tzlp(data, verbose=True):

@@ -1,7 +1,4 @@
-__pycache__/*
-template.py
-draw.py
-_3dtester.py
+**/__pycache__/*
 *.svg
 *.png
 *.mp4

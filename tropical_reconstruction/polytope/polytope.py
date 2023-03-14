@@ -1,7 +1,7 @@
 import numpy as np
 import math
 from scipy.spatial import ConvexHull
-from utils import all_subsets, binary_to_subset
+from tropical_reconstruction.utils import all_subsets, binary_to_subset
 
 TOLERANCE = 1e-5
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))

@@ -1,5 +1,5 @@
-from examples import RandomNeuralNetwork
-from function import test_equal
+from tropical_reconstruction.examples import RandomNeuralNetwork
+from tropical_reconstruction.function import test_equal
 import tqdm
 
 
