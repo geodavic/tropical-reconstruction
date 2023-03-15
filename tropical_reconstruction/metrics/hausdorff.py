@@ -76,16 +76,22 @@ def distance_to_polytope(x, P, metric=2):
         return dist, sol
 
 
-def hausdorff_distance(P, Q, metric=2, full=True):
+def hausdorff_distance(P, Q, metric=2, full=True, thresh=1.0):
     """Compute the Hausdorff distance between polytopes P
     and Q. This is max(min(d(x,P)),min(d(y,Q))).
+
+    Thresh determines the multiplicity return value (i.e. number 
+    of pairs of points achieving thresh*hausdorff distance)
     """
+
+    distances = []
 
     distP = -np.inf
     qP = None
     qQ = None
     for p in P.vertices:
         dist, _ = distance_to_polytope(p, Q, metric=metric)
+        distances += [dist]
         if dist > distP:
             distP = dist
             qP = p
@@ -96,18 +102,27 @@ def hausdorff_distance(P, Q, metric=2, full=True):
     pP = None
     for q in Q.vertices:
         dist, _ = distance_to_polytope(q, P, metric=metric)
+        distances += [dist]
         if dist > distQ:
             distQ = dist
             pQ = q
             pP = _
+    
+    # calculate multiplicity
+    mult = 0
+    distances = reversed(sorted(distances))
+    for d in distances:
+        if thresh*max(distP,distQ) > d:
+            break
+        mult += 1
 
     if full:
         return ((distP, qP, qQ), (distQ, pP, pQ))
     else:
         if distP > distQ:
-            return (distP, qP, qQ)
+            return (distP, qP, qQ, mult)
         else:
-            return (distQ, pP, pQ)
+            return (distQ, pP, pQ, mult)
 
 
 def hausdorff_distance_close(P, Q, thresh, metric=2):
@@ -115,7 +130,7 @@ def hausdorff_distance_close(P, Q, thresh, metric=2):
     and d(p,q) >= thresh*hausdorff_distance(P,Q)
     """
 
-    dist, _, _ = hausdorff_distance(P, Q, full=False)
+    dist, _, _, _ = hausdorff_distance(P, Q, full=False)
 
     pairs = []
     for p in P.vertices:

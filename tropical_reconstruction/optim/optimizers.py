@@ -1,6 +1,7 @@
 from tropical_reconstruction.metrics import hausdorff_distance
 from tropical_reconstruction.polytope import Polytope, Zonotope, random_zonotope, random_polytope
 from tropical_reconstruction.optim.gradient import ZonotopePointGradient, ZonotopeFacetGradient
+from tropical_reconstruction.optim.lrschedulers import LRScheduler
 from tropical_reconstruction.utils.draw import render_polytopes, render_polytopes_close_ties
 import numpy as np
 import cv2
@@ -9,7 +10,7 @@ METRIC = 2
 
 
 def approximate_by_zonotope(
-    P, opt_cls, steps, rank, seed=None, startZ=None, animate=True, opt_kwargs={}
+    P, opt_cls, steps, rank, seed=None, startZ=None, animate=True, opt_kwargs={}, closeness_thresh=0.96
 ):
     """Find a zonotope of rank n that approximates P
     in terms of Hausdorff distance.
@@ -24,7 +25,7 @@ def approximate_by_zonotope(
     else:
         Z = random_zonotope(rank, P.dim)
     Z = Z.translate(P.barycenter - Z.barycenter)
-    # Z = P.sym()
+    Z = P.sym()
     # P.translate(Z.barycenter-P.barycenter)
     # Z = (P.radius/Z.radius)*Z
     opt = opt_cls(Z, P, **opt_kwargs)
@@ -35,19 +36,19 @@ def approximate_by_zonotope(
         out = cv2.VideoWriter("vid/out.mp4", fourcc, 10, frame_size)
 
     for _ in range(steps):
-        dist, p, q = hausdorff_distance(opt.P, opt.Z, full=False, metric=METRIC)
-        # opt.step(p,q)
+        dist, p, q, mult = hausdorff_distance(opt.P, opt.Z, full=False, metric=METRIC, thresh=closeness_thresh)
+        opt.step(p,q, multiplicity=mult)
         try:
-            opt.step(p, q)
-            # pass
+            #opt.step(p, q, multiplicity=mult)
+            pass
         except Exception as e:
             if animate:
                 out.release()
             opt.print(e)
             return opt.Z
-        opt.print(f"step: {_}, distance: {dist}")
+        opt.print(f"step: {_}, distance: {dist}, multiplicity: {mult}, lr: {opt.lrscheduler.lr}")
         if animate:
-            render_polytopes_close_ties(opt.P, opt.Z, name=f"img/frame.png")
+            render_polytopes_close_ties(opt.P, opt.Z, name=f"img/frame.png", thresh=closeness_thresh)
             img = cv2.imread("img/frame.png")
             img = cv2.resize(img, frame_size)
             out.write(img)
@@ -74,9 +75,9 @@ def approximate_by_zonotope_silent(
     opt = opt_cls(Z, P, **opt_kwargs)
 
     for _ in range(steps):
-        dist, p, q = hausdorff_distance(opt.P, opt.Z, full=False, metric=METRIC)
+        dist, p, q, mult = hausdorff_distance(opt.P, opt.Z, full=False, metric=METRIC)
         try:
-            opt.step(p, q)
+            opt.step(p, q, multiplicity=mult)
         except Exception as e:
             return _, opt.Z
         opt.print(f"step: {_}, distance: {dist}")
@@ -101,17 +102,17 @@ class ZonotopeOptimizer:
         self,
         Z: Zonotope,
         P: Polytope,
-        stepping_rate=0.01,
+        lrscheduler: LRScheduler,
         normalize_grad=False,
         verbose=True,
     ):
         self.Z = Z
         self.P = P
-        self.stepping_rate = stepping_rate
         self.normalize_grad = normalize_grad
         self.verbose = verbose
+        self.lrscheduler = lrscheduler
         self.grads = []
-
+        
     def step(self, target_pt, control_pt):
         raise NotImplementedError
 
@@ -120,7 +121,7 @@ class ZonotopeOptimizer:
         if self.normalize_grad:
             v /= np.linalg.norm(v)
 
-        v *= self.stepping_rate
+        v *= self.lrscheduler.lr
         return v
 
 
@@ -131,7 +132,9 @@ class GradientOptimizer(ZonotopeOptimizer):
         if self.verbose:
             print(s)
 
-    def step(self, target_pt, control_pt):
+    def step(self, target_pt, control_pt, multiplicity=1, **kwargs):
+        self.lrscheduler.step(multiplicity)
+
         if self.P.has_vertex(target_pt) and self.Z.has_vertex(control_pt):
             self.print("type 1")
             control_idx = self.Z.get_pt_idx(control_pt, force=True)
@@ -170,8 +173,8 @@ class GradientOptimizer(ZonotopeOptimizer):
         Zf = self._apply_grad(grad)
         Zb = self._apply_grad(-grad)
 
-        distf, _, _ = hausdorff_distance(self.P, Zf, full=False, metric=METRIC)
-        distb, _, _ = hausdorff_distance(self.P, Zb, full=False, metric=METRIC)
+        distf, _, _, _ = hausdorff_distance(self.P, Zf, full=False, metric=METRIC)
+        distb, _, _, _ = hausdorff_distance(self.P, Zb, full=False, metric=METRIC)
 
         if distf < distb:
             self.grads.append(grad)
@@ -196,7 +199,6 @@ class SymmetryOptimizer(ZonotopeOptimizer):
         self,
         Z: Zonotope,
         P: Polytope,
-        stepping_rate=0.01,
         normalize_grad=False,
         move_body=True,
     ):
@@ -204,7 +206,7 @@ class SymmetryOptimizer(ZonotopeOptimizer):
             Z.dim == 2
         ), "The SymmetryOptimizer only works for zonotopes of dimension 2"
         super().__init__(
-            Z, P, stepping_rate=stepping_rate, normalize_grad=normalize_grad
+            Z, P, normalize_grad=normalize_grad
         )
         self.move_body = move_body
 
@@ -216,7 +218,9 @@ class SymmetryOptimizer(ZonotopeOptimizer):
         else:
             self.Z = self.Z.move_pt(control_idx, v)
 
-    def step(self, target_pt, control_pt):
+    def step(self, target_pt, control_pt, **kwargs):
+        self.lrscheduler.step(multiplicity)
+
         # Move Point to Point
         if self.P.has_vertex(target_pt) and self.Z.has_vertex(control_pt):
             control_idx = self.Z.get_pt_idx(control_pt)

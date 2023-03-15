@@ -64,7 +64,7 @@ def render_polytopes(P: Polytope,Z: Zonotope, metric=2,name=None):
         p2 = Z.vertices[(j+1)%m]
         plt.plot([p1[0],p2[0]],[p1[1],p2[1]],marker='o',color='r')
 
-    dist,p,q = hausdorff_distance(P,Z,metric=metric,full=False)
+    dist,p,q,_ = hausdorff_distance(P,Z,metric=metric,full=False)
     plt.plot([p[0],q[0]],[p[1],q[1]],marker='*',color='k')
 
     if name is None:
@@ -81,7 +81,7 @@ def render_polytopes_close_ties(P: Polytope, Z: Zonotope, metric=2, name=None, t
     for p,q in close_pts:
         plt.plot([p[0],q[0]],[p[1],q[1]],marker="*",color='y')
 
-    dist,p,q = hausdorff_distance(P,Z,metric=metric,full=False)
+    dist,p,q,_ = hausdorff_distance(P,Z,metric=metric,full=False)
     plt.plot([p[0],q[0]],[p[1],q[1]],marker='*',color='k')
 
     if name is None:
