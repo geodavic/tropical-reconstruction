@@ -69,7 +69,9 @@ class ZonotopePointGradient(ZonotopeGradient):
 
 class ZonotopeFacetGradient(ZonotopeGradient):
     """
-    Facet gradient class for a Zonotope.
+    Facet gradient class for a Zonotope, using the normal cone hack approximation
+    to the gradient.
+
     This one's a bit more complicated...
     """
 
@@ -85,6 +87,8 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         face_subset: list
             Subset of indices of generators corresponding to the target
             face.
+        v: np.array
+            Target point on P.
         """
         super().__init__(zonotope)
         self.pt_subset = pt_subset
