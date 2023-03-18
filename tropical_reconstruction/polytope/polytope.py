@@ -3,7 +3,7 @@ import math
 from scipy.spatial import ConvexHull
 from tropical_reconstruction.utils import all_subsets, binary_to_subset
 
-TOLERANCE = 1e-5
+TOLERANCE = 1e-8
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
 
@@ -69,8 +69,13 @@ class Halfspace:
 
     def __init__(self, a, c):
         self.tolerance = TOLERANCE
-        self.a = a
+        self.a = np.array(a)
         self.c = c
+
+    def __eq__(self, other):
+        if isinstance(other, Halfspace):
+            return np.linalg.norm(self.a - other.a) < TOLERANCE and np.abs(self.c - other.c) < TOLERANCE
+        return False
 
     def contains(self, x):
         if self.a @ x + self.c <= 0:
@@ -202,7 +207,7 @@ class Polytope:
         hyperplanes = []
         for eq in self.hull.equations:
             plane = Halfspace(eq[:-1], eq[-1])
-            if plane.boundary_contains(x):
+            if plane.boundary_contains(x) and plane not in hyperplanes:
                 hyperplanes.append(plane)
 
         return hyperplanes

@@ -156,12 +156,12 @@ class GradientOptimizer(ZonotopeOptimizer):
                 for v in self.Z.vertices:
                     if facet.boundary_contains(v):
                         idx = self.Z.get_pt_idx(v, force=True)
-                        control_subset = self.Z.pts_subsets(idx, binary=False)
+                        sample_point_subset = self.Z.pts_subsets(idx, binary=False)
                         # self.print(control_subset)
                         break
                 facet_generators_subset = self.Z.get_facet_generators(facet)
                 new_grad = ZonotopeFacetGradient(
-                    self.Z, control_subset, facet_generators_subset, target_pt
+                    self.Z, sample_point_subset, facet, target_pt
                 )()
                 grads += [new_grad]
 
