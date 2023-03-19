@@ -162,6 +162,19 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         else:
             return c[0]
 
+    def _distance_to_pt(self, v, evaluate=False):
+        """
+        Calculate distance from v to the supporting hyperplane of the control face.
+        """
+        v = sp.Matrix(v)
+        eta = self._facet_normal(evaluate=False)
+        d = (eta.T @ v)[0] - self._offset(evaluate=False)
+
+        if evaluate:
+            return self._evaluate(d)
+        else:
+            return d
+
     def _grad_facet_normal(self, evaluate=False):
         """
         Calculate the gradient of the facet normal.
@@ -251,4 +264,3 @@ def ZonotopeFaceGradient(ZonotopeGradient):
         ), "Number of facets defining the face must be less than the ambient dimension (the face cannot be a point)"
 
         self.facet_gradients = facet_gradients
-        self.v = facet_gradients[0].v

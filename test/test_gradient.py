@@ -52,6 +52,7 @@ class test_ZonotopeFacetGradient(unittest.TestCase):
         """
         Test that the ZonotopeFacetGradient offset value is correct
         """
+
         c = self.G1._offset(evaluate=True)
         target_c = self.G1.hyperplane.c
 
