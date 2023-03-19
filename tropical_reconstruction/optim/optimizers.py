@@ -10,7 +10,7 @@ METRIC = 2
 
 
 def approximate_by_zonotope(
-    P, opt_cls, steps, rank, seed=None, startZ=None, animate=True, opt_kwargs={}, closeness_thresh=0.96
+    P, opt_cls, steps, rank, seed=None, startZ=None, animate=True, opt_kwargs={}, closeness_thresh=0.96, warmstart=True
 ):
     """Find a zonotope of rank n that approximates P
     in terms of Hausdorff distance.
@@ -24,10 +24,12 @@ def approximate_by_zonotope(
         Z = startZ
     else:
         Z = random_zonotope(rank, P.dim)
+
+    if warmstart:
+        Z = P.sym()
+
     Z = Z.translate(P.barycenter - Z.barycenter)
-    Z = P.sym()
-    # P.translate(Z.barycenter-P.barycenter)
-    # Z = (P.radius/Z.radius)*Z
+
     opt = opt_cls(Z, P, **opt_kwargs)
 
     if animate:
@@ -153,23 +155,20 @@ class GradientOptimizer(ZonotopeOptimizer):
             grads = []
             facets = self.Z.incident_hyperplanes(control_pt)
             for facet in facets:
-                for v in self.Z.vertices:
-                    if facet.boundary_contains(v):
-                        idx = self.Z.get_pt_idx(v, force=True)
-                        sample_point_subset = self.Z.pts_subsets(idx, binary=False)
-                        # self.print(control_subset)
-                        break
-                facet_generators_subset = self.Z.get_facet_generators(facet)
                 new_grad = ZonotopeFacetGradient(
-                    self.Z, sample_point_subset, facet, target_pt
-                )()
+                    self.Z, facet
+                )(target_pt)
                 grads += [new_grad]
 
             # normal cone hack
-            grad = sum(grads) / len(grads)
+            grad = - sum(grads) / len(grads)
 
         grad = self._prepare_gradient(grad)
-        # TODO: decide on a sign for grad. For now below will suffice.
+
+        self.grads.append(grad)
+        self.Z = self._apply_grad(grad)
+
+        """
         Zf = self._apply_grad(grad)
         Zb = self._apply_grad(-grad)
 
@@ -180,9 +179,10 @@ class GradientOptimizer(ZonotopeOptimizer):
             self.grads.append(grad)
             self.Z = Zf
         else:
-            self.print("flipped grad")
+            self.print("flipped grad -- something's wrong!")
             self.grads.append(-grad)
             self.Z = Zb
+        """
 
     def _apply_grad(self, grad):
         new_generators = self.Z.generators + grad[:-1]

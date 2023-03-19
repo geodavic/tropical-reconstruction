@@ -94,9 +94,9 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         self.face_subset = zonotope.get_facet_generators(hyperplane)
         self.pt_subset = self._get_sample_pt_subset()
         self.symbols = [
-            [sp.Symbol(f"g{i}{j}") for j in range(self.d)] for i in range(self.n)
+            [sp.Symbol(f"g{i}{j}", real=True) for j in range(self.d)] for i in range(self.n)
         ]
-        self.mu_symbols = [sp.Symbol(f"mu{j}") for j in range(self.d)]
+        self.mu_symbols = [sp.Symbol(f"mu{j}", real=True) for j in range(self.d)]
 
     def _get_sample_pt_subset(self):
         """
@@ -178,7 +178,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         ]
         for j in range(len(grad)):
             grad[j] += [[Integer(0)] * self.d]
-
+        
         if evaluate:
             return self._evaluate(grad)
         else:
@@ -186,7 +186,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
 
     def __call__(self,v):
         """
-        Return the value of the gradient
+        Return the gradient of d(Z,v)
         """
         eta = self._facet_normal(evaluate=True)
         etaI = []
