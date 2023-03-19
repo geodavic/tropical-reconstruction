@@ -156,7 +156,7 @@ class TZLP_Solver:
         ).tolist()
 
         def r(k, eta):
-            d_k = -self.Y_upper_hull_inequalities[k].c
+            d_k = self.Y_upper_hull_inequalities[k].c
             q_k = np.array(self.Y_upper_hull_inequalities[k].a[:-1])
             return d_k - q_k @ (qz @ np.array(eta))
 

@@ -15,7 +15,7 @@ class test_ZonotopeFacetGradient(unittest.TestCase):
         """
         generators = np.eye(3,3)
         Z = Zonotope(generators=generators)
-        hyperplane = Halfspace(a=np.array([1,0,0]),c=-1)
+        hyperplane = Halfspace(a=np.array([1,0,0]),c=1)
         return ZonotopeFacetGradient(Z,hyperplane)
 
     def _setup2(self):
@@ -53,11 +53,11 @@ class test_ZonotopeFacetGradient(unittest.TestCase):
         Test that the ZonotopeFacetGradient offset value is correct
         """
         c = self.G1._offset(evaluate=True)
-        target_c = -self.G1.hyperplane.c # sign convention is opposite for Hyperplane class
+        target_c = self.G1.hyperplane.c
 
         assert np.abs(c-target_c) < TOLERANCE
 
         c = self.G2._offset(evaluate=True)
-        target_c = -self.G2.hyperplane.c # sign convention is opposite for Hyperplane class
+        target_c = self.G2.hyperplane.c
 
         assert np.abs(c-target_c) < TOLERANCE

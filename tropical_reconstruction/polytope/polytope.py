@@ -65,7 +65,7 @@ def is_centrally_symmetric(vert, tolerance=TOLERANCE):
 
 
 class Halfspace:
-    """A halfspace of the form a \dot x + c <= 0"""
+    """A halfspace of the form a \dot x - c <= 0"""
 
     def __init__(self, a, c):
         self.tolerance = TOLERANCE
@@ -78,12 +78,12 @@ class Halfspace:
         return False
 
     def contains(self, x):
-        if self.a @ x + self.c <= 0:
+        if self.a @ x - self.c <= 0:
             return True
         return False
 
     def boundary_contains(self, x):
-        if abs(self.a @ x + self.c) < self.tolerance:
+        if abs(self.a @ x - self.c) < self.tolerance:
             return True
         return False
 
@@ -148,7 +148,7 @@ class Polytope:
     @property
     def hyperplanes(self):
         inequalities = [e for e in np.unique(self.hull.equations, axis=0)]
-        return [Halfspace(eq[:-1], eq[-1]) for eq in inequalities]
+        return [Halfspace(eq[:-1], -eq[-1]) for eq in inequalities]
 
     @property
     def upper_hull(self):
@@ -202,11 +202,11 @@ class Polytope:
         ways to compute this (e.g. Simplex method).
 
         Hyperplanes will be in the form (a,c) where a is the normal and c is the offset.
-        The associated halfspace is defined by a \dot x + c <= 0.
+        The associated halfspace is defined by a \dot x - c <= 0.
         """
         hyperplanes = []
         for eq in self.hull.equations:
-            plane = Halfspace(eq[:-1], eq[-1])
+            plane = Halfspace(eq[:-1], -eq[-1])
             if plane.boundary_contains(x) and plane not in hyperplanes:
                 hyperplanes.append(plane)
 

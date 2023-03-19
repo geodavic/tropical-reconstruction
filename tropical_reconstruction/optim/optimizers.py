@@ -92,7 +92,7 @@ def get_direction_to_subspace(x, p, polytope):
     """
     incidents = polytope.incident_hyperplanes(p)
     A = np.array([h.a for h in incidents])
-    c = np.array([-h.c for h in incidents])
+    c = np.array([h.c for h in incidents])
     direction = np.linalg.lstsq(A, c - A @ x)[0]
     return direction
 
