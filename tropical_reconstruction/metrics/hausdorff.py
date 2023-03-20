@@ -36,8 +36,8 @@ def distance_to_polytope(x, P, metric=2):
             ub=ub,
             solver="osqp",
             polish=1,
-            eps_abs=1e-5,
-            eps_rel=1e-5,
+            eps_abs=1e-8,
+            eps_rel=1e-8,  # TODO: should this be THRESH?
         )
         sol = sol[: len(x)]
         dist = np.linalg.norm(sol - x)
@@ -80,7 +80,7 @@ def hausdorff_distance(P, Q, metric=2, full=True, thresh=1.0):
     """Compute the Hausdorff distance between polytopes P
     and Q. This is max(min(d(x,P)),min(d(y,Q))).
 
-    Thresh determines the multiplicity return value (i.e. number 
+    Thresh determines the multiplicity return value (i.e. number
     of pairs of points achieving thresh*hausdorff distance)
     """
 
@@ -107,12 +107,12 @@ def hausdorff_distance(P, Q, metric=2, full=True, thresh=1.0):
             distQ = dist
             pQ = q
             pP = _
-    
+
     # calculate multiplicity
     mult = 0
     distances = reversed(sorted(distances))
     for d in distances:
-        if thresh*max(distP,distQ) > d:
+        if thresh * max(distP, distQ) > d:
             break
         mult += 1
 

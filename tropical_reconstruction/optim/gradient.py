@@ -94,9 +94,15 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         self.face_subset = zonotope.get_facet_generators(hyperplane)
         self.pt_subset = self._get_sample_pt_subset()
         self.symbols = [
-            [sp.Symbol(f"g{i}{j}", real=True) for j in range(self.d)] for i in range(self.n)
+            [sp.Symbol(f"g{i}{j}", real=True) for j in range(self.d)]
+            for i in range(self.n)
         ]
         self.mu_symbols = [sp.Symbol(f"mu{j}", real=True) for j in range(self.d)]
+
+        self._facet_normal = None
+        self._facet_normal_evaluated = None
+        self._offset = None
+        self._offset_evaluated = None
 
     def _get_sample_pt_subset(self):
         """
@@ -109,7 +115,19 @@ class ZonotopeFacetGradient(ZonotopeGradient):
 
         raise Exception("Given hyperplane does not support any faces of the zonotope")
 
-    def _facet_normal(self, evaluate=False, normalize=True):
+    @property
+    def facet_normal(self):
+        if self._facet_normal is None:
+            self._facet_normal = self._calculate_facet_normal(evaluate=False)
+        return self._facet_normal
+
+    @property
+    def facet_normal_evaluated(self):
+        if self._facet_normal_evaluated is None:
+            self._facet_normal_evaluated = self._evaluate(self.facet_normal)
+        return self._facet_normal_evaluated
+
+    def _calculate_facet_normal(self, evaluate=False, normalize=True):
         """
         Calculate normal vector to facet of the Zonotope
         corresponding to self.face_subset.
@@ -119,7 +137,9 @@ class ZonotopeFacetGradient(ZonotopeGradient):
 
         nu = []
         for i in range(self.d):
-            mat = sp.Matrix([slice_generator(i, self.symbols[j]) for j in self.face_subset])
+            mat = sp.Matrix(
+                [slice_generator(i, self.symbols[j]) for j in self.face_subset]
+            )
             nu.append((-1) ** (i + 1) * sp.det(mat))
 
         nu = sp.Matrix(nu)
@@ -127,7 +147,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         # nu should point outwards. The Determinant formula is ambiguous
         # on the sign of nu. It should be the same sign as the normal
         # vector to self.hyperplane
-        sign = np.sign(self.hyperplane.a[0]/self._evaluate(nu)[0])
+        sign = np.sign(self.hyperplane.a[0] / self._evaluate(nu)[0])
 
         if normalize:
             nu /= nu.norm(2)
@@ -138,7 +158,19 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         else:
             return nu
 
-    def _offset(self, evaluate=False):
+    @property
+    def offset(self):
+        if self._offset is None:
+            self._offset = self._calculate_offset(evaluate=False)
+        return self._offset
+
+    @property
+    def offset_evaluated(self):
+        if self._offset_evaluated is None:
+            self._offset_evaluated = self._calculate_offset(evaluate=True)
+        return self._offset_evaluated
+
+    def _calculate_offset(self, evaluate=False):
         """
         Calculate the offset value to the supporting hyperplane of the
         face of the zonotope. In other words, if eta is the normal vector
@@ -153,7 +185,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
                 pj += self.symbols[i][j]
             p.append(pj)
         p = sp.Matrix(p)
-        eta = self._facet_normal(evaluate=False)
+        eta = self.facet_normal
 
         c = eta.T @ p
 
@@ -167,8 +199,8 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         Calculate distance from v to the supporting hyperplane of the control face.
         """
         v = sp.Matrix(v)
-        eta = self._facet_normal(evaluate=False)
-        d = (eta.T @ v)[0] - self._offset(evaluate=False)
+        eta = self.facet_normal
+        d = (eta.T @ v)[0] - self.offset
 
         if evaluate:
             return self._evaluate(d)
@@ -181,7 +213,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
 
         Something something Jacobi's formula
         """
-        nu = self._facet_normal(evaluate=False)
+        nu = self.facet_normal
         grad = [
             [
                 [sp.diff(t, self.symbols[i][j]) for j in range(self.d)]
@@ -191,17 +223,20 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         ]
         for j in range(len(grad)):
             grad[j] += [[Integer(0)] * self.d]
-        
+
         if evaluate:
             return self._evaluate(grad)
         else:
             return sp.Array(grad)
 
-    def __call__(self,v):
+    def _distance_gradient_explicit(self, v):
         """
-        Return the gradient of d(Z,v)
+        Return the gradient of d(Z,v) (original method, accelerated a bit
+        by some precomputation).
         """
-        eta = self._facet_normal(evaluate=True)
+        grad_eta = np.array(self._grad_facet_normal(evaluate=True))
+        eta = self.facet_normal_evaluated
+
         etaI = []
         for i in range(self.n):
             if i in self.pt_subset:
@@ -212,7 +247,6 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         etaI = np.array(etaI)
 
         first_term = np.zeros((self.n + 1, self.d))
-        grad_eta = np.array(self._grad_facet_normal(evaluate=True))
         for j in range(self.d):
             mult = (
                 v[j]
@@ -222,6 +256,24 @@ class ZonotopeFacetGradient(ZonotopeGradient):
             first_term += mult * grad_eta[j]
 
         return first_term - etaI
+
+    def _distance_gradient_naiive(self, v):
+        """
+        Return the gradient of d(Z,v) (new method, by naievely differentiating
+        the distance directly). This is a bit slower than the explicit method.
+        """
+        d = self._distance_to_pt(v, evaluate=False)
+        grad = [
+            [sp.diff(d, self.symbols[i][j]) for j in range(self.d)]
+            for i in range(self.n)
+        ]
+        grad += [[sp.diff(d, self.mu_symbols[j]) for j in range(self.d)]]
+        return np.array(self._evaluate(grad))
+
+    def __call__(self, v, explicit_method=True):
+        if explicit_method:
+            return self._distance_gradient_explicit(v)
+        return self._distance_gradient_naiive(v)
 
     def _evaluate(self, expr):
         """Kinda messy"""
