@@ -14,7 +14,7 @@ if not os.path.exists("img"):
     os.makedirs("img")
 
 polytope = True
-warmstart = False
+warmstart = True
 
 if polytope:
     P = random_polytope(10, 2)

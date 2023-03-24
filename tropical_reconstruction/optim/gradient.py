@@ -1,8 +1,6 @@
 import numpy as np
-import sympy as sp
-from sympy.core.numbers import Number
-from sympy import Integer
-from sympy.core import Expr
+import symengine as se
+from symengine import Integer, Number, Expr
 from tropical_reconstruction.polytope import Zonotope, TOLERANCE
 from tropical_reconstruction.utils import all_subsets
 
@@ -94,10 +92,10 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         self.face_subset = zonotope.get_facet_generators(hyperplane)
         self.pt_subset = self._get_sample_pt_subset()
         self.symbols = [
-            [sp.Symbol(f"g{i}{j}", real=True) for j in range(self.d)]
+            [se.Symbol(f"g{i}{j}", real=True) for j in range(self.d)]
             for i in range(self.n)
         ]
-        self.mu_symbols = [sp.Symbol(f"mu{j}", real=True) for j in range(self.d)]
+        self.mu_symbols = [se.Symbol(f"mu{j}", real=True) for j in range(self.d)]
         self.all_symbols_flat = [s for g in self.symbols for s in g] + [s for s in self.mu_symbols]
 
         self._facet_normal = None
@@ -131,19 +129,19 @@ class ZonotopeFacetGradient(ZonotopeGradient):
     def _calculate_facet_normal(self, evaluate=False, normalize=True):
         """
         Calculate normal vector to facet of the Zonotope
-        corresponding to self.face_subset.
+        correseonding to self.face_subset.
         """
 
         slice_generator = lambda i, g: g[:i] + g[(i + 1) :]
 
         nu = []
         for i in range(self.d):
-            mat = sp.Matrix(
+            mat = se.Matrix(
                 [slice_generator(i, self.symbols[j]) for j in self.face_subset]
             )
-            nu.append((-1) ** (i + 1) * sp.det(mat))
+            nu.append((-1) ** (i + 1) * mat.det())
 
-        nu = sp.Matrix(nu)
+        nu = se.Matrix(nu)
 
         # nu should point outwards. The Determinant formula is ambiguous
         # on the sign of nu. It should be the same sign as the normal
@@ -151,7 +149,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         sign = np.sign(self.hyperplane.a[0] / self._evaluate(nu)[0])
 
         if normalize:
-            nu /= nu.norm(2)
+            nu /= se.sqrt(sum([a**2 for a in nu.ravel()]))
         nu *= sign
 
         if evaluate:
@@ -185,7 +183,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
             for i in self.pt_subset:
                 pj += self.symbols[i][j]
             p.append(pj)
-        p = sp.Matrix(p)
+        p = se.Matrix(p)
         eta = self.facet_normal
 
         c = eta.T @ p
@@ -199,7 +197,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         """
         Calculate distance from v to the supporting hyperplane of the control face.
         """
-        v = sp.Matrix(v)
+        v = se.Matrix(v)
         eta = self.facet_normal
         d = (eta.T @ v)[0] - self.offset
 
@@ -217,7 +215,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         nu = self.facet_normal
         grad = [
             [
-                [sp.diff(t, self.symbols[i][j]) for j in range(self.d)]
+                [se.diff(t, self.symbols[i][j]) for j in range(self.d)]
                 for i in range(self.n)
             ]
             for t in nu
@@ -228,7 +226,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         if evaluate:
             return self._evaluate(grad)
         else:
-            return sp.Matrix(grad)
+            return se.Matrix(grad)
 
     def _distance_gradient_explicit(self, v):
         """
@@ -265,10 +263,10 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         """
         d = self._distance_to_pt(v, evaluate=False)
         grad = [
-            [sp.diff(d, self.symbols[i][j]) for j in range(self.d)]
+            [se.diff(d, self.symbols[i][j]) for j in range(self.d)]
             for i in range(self.n)
         ]
-        grad += [[sp.diff(d, self.mu_symbols[j]) for j in range(self.d)]]
+        grad += [[se.diff(d, self.mu_symbols[j]) for j in range(self.d)]]
         return np.array(self._evaluate(grad))
 
     def __call__(self, v, explicit_method=True):
@@ -278,15 +276,16 @@ class ZonotopeFacetGradient(ZonotopeGradient):
 
     def _evaluate(self, expr):
         """Kinda messy"""
-        if not isinstance(expr, Expr) and not isinstance(expr, Number):
-            return [self._evaluate(t) for t in expr]
-
-        if isinstance(expr, Number):
+        try:
             return float(expr)
+        except:
+            pass
+        if not isinstance(expr, Expr):
+            return [self._evaluate(t) for t in expr]
         else:
             vals = np.append(self.generators.flatten() , self.mu)
             var = self.all_symbols_flat
-            expr = expr.evalf(subs=dict(zip(var,vals)))
+            expr = expr.subs(dict(zip(var,vals)))
             """
             for symb, g in zip(self.symbols, self.generators):
                 for sg, gi in zip(symb, g):

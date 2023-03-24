@@ -36,8 +36,9 @@ def distance_to_polytope(x, P, metric=2):
             ub=ub,
             solver="osqp",
             polish=1,
-            eps_abs=1e-8,
-            eps_rel=1e-8,  # TODO: should this be THRESH?
+            eps_abs=1e-9,
+            eps_rel=1e-9,  # TODO: should this be THRESH?
+            max_iter=20000,
         )
         sol = sol[: len(x)]
         dist = np.linalg.norm(sol - x)

@@ -6,7 +6,6 @@ from tropical_reconstruction.utils import all_subsets, binary_to_subset
 TOLERANCE = 1e-8
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
-
 def random_zonotope(n, d, scale=None):
     """Create a random Zonotope of rank n in R^d"""
     if scale is None:
@@ -16,7 +15,6 @@ def random_zonotope(n, d, scale=None):
     Z = Zonotope(generators=Az)
     return Z
 
-
 def random_polytope(k, d, scale=1):
     """Create a random polytope as a convex hull of k
     random points.
@@ -24,7 +22,6 @@ def random_polytope(k, d, scale=1):
     pts = scale * np.random.rand(k, d)
     P = Polytope(pts=pts)
     return P
-
 
 def zonotope_generators_from_vertices(vert):
     """Compute the Zonotope generators of a convex hull vertices.
@@ -48,7 +45,6 @@ def zonotope_generators_from_vertices(vert):
     else:
         raise NotImplementedError
 
-
 def is_centrally_symmetric(vert, tolerance=TOLERANCE):
     """Check if a hull is centrally symmetric."""
     barycenter = np.sum(vert, axis=0) / len(vert)
@@ -62,6 +58,19 @@ def is_centrally_symmetric(vert, tolerance=TOLERANCE):
         if not found_reflection:
             return False
     return True
+
+
+def get_direction_to_subspace(x, p, polytope):
+    """Get the direction vector between a point x and the subspace
+    spanned by the smallest polytope face containing p.
+    """
+    incidents = polytope.incident_hyperplanes(p)
+    if not incidents:
+        raise Exception("Could not get direction to subspace, p is not contained in the polytope boundary")
+    A = np.array([h.a for h in incidents])
+    c = np.array([h.c for h in incidents])
+    direction = np.linalg.lstsq(A, c - A @ x, rcond=None)[0]
+    return direction
 
 
 class Halfspace:
@@ -205,9 +214,8 @@ class Polytope:
         The associated halfspace is defined by a \dot x - c <= 0.
         """
         hyperplanes = []
-        for eq in self.hull.equations:
-            plane = Halfspace(eq[:-1], -eq[-1])
-            if plane.boundary_contains(x) and plane not in hyperplanes:
+        for plane in self.hyperplanes:
+            if plane.boundary_contains(x):
                 hyperplanes.append(plane)
 
         return hyperplanes
@@ -418,23 +426,3 @@ class Zonotope(Polytope):
 
         # return Zonotope(pts=self.vertices)
         return Zonotope(pts=self.pts)
-
-
-class BalancedZonotope(Zonotope):
-    """A balanced zonotope (image of cube in R^n whose vertices are
-    \pm 1 valued not (0,1) valued.)"""
-
-    def __init__(self, generators, mu=None):
-        if mu is None:
-            mu = np.zeros(len(generators[0]))
-        self.mu = mu
-        self._generators = generators
-
-        self._pts_subsets = all_subsets(self.rank)
-
-        cubical_vert = np.array(
-            [(self.generators).T @ e + mu for e in self._pts_subsets]
-        )
-        hull = ConvexHull(cubical_vert)
-
-        super().__init__(hull=hull)
