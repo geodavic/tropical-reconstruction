@@ -98,6 +98,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
             for i in range(self.n)
         ]
         self.mu_symbols = [sp.Symbol(f"mu{j}", real=True) for j in range(self.d)]
+        self.all_symbols_flat = [s for g in self.symbols for s in g] + [s for s in self.mu_symbols]
 
         self._facet_normal = None
         self._facet_normal_evaluated = None
@@ -227,7 +228,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         if evaluate:
             return self._evaluate(grad)
         else:
-            return sp.Array(grad)
+            return sp.Matrix(grad)
 
     def _distance_gradient_explicit(self, v):
         """
@@ -283,11 +284,17 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         if isinstance(expr, Number):
             return float(expr)
         else:
+            vals = np.append(self.generators.flatten() , self.mu)
+            var = self.all_symbols_flat
+            expr = expr.evalf(subs=dict(zip(var,vals)))
+            """
             for symb, g in zip(self.symbols, self.generators):
                 for sg, gi in zip(symb, g):
                     expr = expr.subs(sg, gi)
             for mu_symb, m in zip(self.mu_symbols, self.mu):
                 expr = expr.subs(mu_symb, m)
+            """
+
             return self._evaluate(expr)
 
 
