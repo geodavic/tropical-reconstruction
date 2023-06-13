@@ -6,12 +6,16 @@ from tropical_reconstruction.utils import all_subsets, binary_to_subset
 TOLERANCE = 1e-8
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
-def random_zonotope(n, d, scale=None):
+def random_zonotope(n, d, scale=None, positive=True):
     """Create a random Zonotope of rank n in R^d"""
     if scale is None:
         scale = np.sqrt(1 / n)
+    
+    Az = np.random.rand(n, d)
+    if not positive:
+        Az = 2*Az - 1
 
-    Az = scale * np.random.rand(n, d)
+    Az = scale * Az
     Z = Zonotope(generators=Az)
     return Z
 
@@ -37,7 +41,8 @@ def zonotope_generators_from_vertices(vert):
         generators = []
         for i in range(len(vert) - 1):
             g = vert[i + 1] - vert[i]
-            g *= np.sign(g[0])
+            if np.sign(g[0]):
+                g *= np.sign(g[0])
             generators.append(g)
         generators = np.array(generators)
         return np.unique(generators.round(decimals=TOLERANCE_DIGITS), axis=0)
@@ -72,6 +77,54 @@ def get_direction_to_subspace(x, p, polytope):
     direction = np.linalg.lstsq(A, c - A @ x, rcond=None)[0]
     return direction
 
+def polytope_height_at(P, m):
+    """
+    Calculate the highest value of h such that (m,h) \in P.
+    If no such h exists, return np.infty.
+    """
+    h = np.infty
+    m = np.array(m)
+    if not P.project().contains(m):
+        return h
+    
+    for plane in P.upper_hull:
+        h = min(h, (plane.c - m @ plane.a[:-1])/plane.a[-1])
+
+    return h
+
+def remove_duplicate_generators(Z):
+    """ Remove any duplicate generators from a zonotope Z. The resulting Zonotope
+    will have the same vertices as Z but possibly no generators in common with Z.
+
+    (duplicates are generators that are scalar multiples of another generator)
+    """
+    new_generators = []
+    generators = Z.generators
+
+    for g in generators:
+        if np.linalg.norm(g) < TOLERANCE/100:
+            continue
+
+        has_generator = False
+        for g2 in new_generators:
+            for nz in range(len(g2)):
+                if abs(g2[nz]) > TOLERANCE/100:
+                    break
+            scale = g[nz]/g2[nz]
+            if np.linalg.norm(g-scale*g2) < TOLERANCE/100:
+                has_generator = True
+                g2 -= g
+                break
+
+        if not has_generator:
+            new_generators += [g]
+
+    new_generators = np.array(new_generators)
+    subsets = all_subsets(len(new_generators))
+    cv = np.array([new_generators.T@e for e in subsets])
+    new_mu = -sum(cv)/len(cv) + sum(Z.vertices)/len(Z.vertices)
+
+    return Zonotope(generators=new_generators, mu=new_mu)
 
 class Halfspace:
     """A halfspace of the form a \dot x - c <= 0"""
@@ -206,6 +259,13 @@ class Polytope:
     def is_centrally_symmetric(self):
         return is_centrally_symmetric(self.vertices, self.tolerance)
 
+    def contains(self, p):
+        """ Return if p \in P """
+        for H in self.hyperplanes:
+            if not H.contains(p):
+                return False
+        return True
+
     def incident_hyperplanes(self, x):
         """Return the supporting hyperplanes to x. There might be more efficient
         ways to compute this (e.g. Simplex method).
@@ -246,10 +306,10 @@ class Polytope:
         else:
             raise ValueError("Passed point is not a point of polytope")
 
-    def get_facet_generators(self, facet_eq):
+    def get_facet_generators(self, facet: Halfspace):
         gens = []
         for idx, g in enumerate(self.generators):
-            if abs(facet_eq.a @ g) <= facet_eq.tolerance:
+            if abs(facet.a @ g) <= facet.tolerance:
                 gens += [idx]
         return gens
 
@@ -309,7 +369,7 @@ class Zonotope(Polytope):
         if generators is not None:
             if mu is None:
                 mu = np.zeros(len(generators[0]))
-            self._generators = generators
+            self._generators = np.array(generators)
         elif pts is not None:
             mu = None
             vert = Polytope(pts=pts).vertices
@@ -332,6 +392,17 @@ class Zonotope(Polytope):
         hull = ConvexHull(cubical_vert)
 
         super().__init__(hull=hull)
+
+    def __mul__(self, a):
+        """Override super class dunders"""
+        new_generators = []
+        for g in self.generators:
+            new_generators.append(a * g)
+        return self.__class__(generators=new_generators)
+
+    def __rmul__(self, a):
+        """Same as __mul__"""
+        return self.__mul__(a)
 
     def update(self, new_pts):
         """Must override parent class, since instances of this class should be immutable."""

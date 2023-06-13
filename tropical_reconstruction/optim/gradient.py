@@ -3,6 +3,7 @@ import symengine as se
 from symengine import Integer, Number, Expr
 from tropical_reconstruction.polytope import Zonotope, TOLERANCE
 from tropical_reconstruction.utils import all_subsets
+from tropical_reconstruction.metrics import distance_to_polytope_l2
 
 
 class ZonotopeGradient:
@@ -24,9 +25,9 @@ class ZonotopeGradient:
         return self.zonotope.mu
 
 
-class ZonotopePointGradient(ZonotopeGradient):
+class ZonotopeVertexGradient(ZonotopeGradient):
     """
-    Point gradient class for a Zonotope.
+    Vertex gradient class for a Zonotope.
 
     In this case, the control point is a vertex of the zonotope.
     """
@@ -55,7 +56,8 @@ class ZonotopePointGradient(ZonotopeGradient):
 
     def __call__(self):
         """
-        Return the value of the gradient
+        Return the value of the gradient of the distance between the control
+        point and the target face.
         """
         grad = np.zeros((self.n, self.d))
         for i in range(self.n):
@@ -70,13 +72,58 @@ class ZonotopePointGradient(ZonotopeGradient):
         return 1 if j == k and i in self.pt_subset else 0
 
 
+class ZonotopeBoundaryPointGradient(ZonotopeGradient):
+    """
+    Boundary point gradient class for a Zonotope.
+
+    In this case, the control point is a point on the boundary of the zonotope.
+    This calculates the gradient that moves the control point to the target
+    point explicitly.
+    """
+
+    def __init__(self, zonotope, control_pt):
+        """
+        Parameters
+        ----------
+
+        zonotope: Zonotope
+            The zonotope being optimized
+        control_pt:
+            The control point on the zonotope.
+        """
+        super().__init__(zonotope)
+        _,_,self.sum_coeffs = distance_to_polytope_l2(control_pt, zonotope)
+        assert len(self.sum_coeffs) == len(self.zonotope.vertices), "Convex sum coefficients not in bijection with zonotope vertices"
+
+    def __call__(self, v):
+        """
+        Calculate the gradient of the squared distance between the control
+        point and v.
+        """
+        q = sum([lam*vert for lam,vert in zip(self.sum_coeffs,self.zonotope.vertices)])
+        I = lambda k: self.zonotope.pts_subsets(self.zonotope.get_pt_idx(self.zonotope.vertices[k]), binary=False)
+
+        grad = np.zeros((self.n+1, self.d))
+        for i in range(self.n):
+            for j in range(self.d):
+                grad[i][j] = (v[j] - q[j])*sum([self.sum_coeffs[k] for k in range(len(self.sum_coeffs)) if i in I(k)])
+
+        for j in range(self.d):
+            grad[self.n][j] = v[j] - q[j]
+
+        return grad
+        
+
 class ZonotopeFacetGradient(ZonotopeGradient):
     """
-    Facet gradient class for a Zonotope, used in the normal cone hack approximation
-    to the gradient.
+    Facet gradient class for a Zonotope.
 
-    This one's a bit more complicated...
+    In this case, the control point is on a facet of the zonotope. This 
+    calculates a gradient that moves the entire facet on which the control
+    point lies.
 
+    Question: is this the same gradient as ZonotopeBoundaryPointGradient?
+    It would be interesting if it wasn't...
     """
 
     def __init__(self, zonotope, hyperplane):
@@ -88,6 +135,8 @@ class ZonotopeFacetGradient(ZonotopeGradient):
             Supporting hyperplane of control facet.
         """
         super().__init__(zonotope)
+        if self.d > self.n:
+            raise ValueError("This gradient method is not valid when the zonotope rank is less than the ambient dimension.")
         self.hyperplane = hyperplane
         self.face_subset = zonotope.get_facet_generators(hyperplane)
         self.pt_subset = self._get_sample_pt_subset()
@@ -146,7 +195,14 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         # nu should point outwards. The Determinant formula is ambiguous
         # on the sign of nu. It should be the same sign as the normal
         # vector to self.hyperplane
-        sign = np.sign(self.hyperplane.a[0] / self._evaluate(nu)[0])
+        nu_eval = self._evaluate(nu)
+        nz_idx = 0
+        mult = nu_eval[nz_idx]
+        while abs(mult) < TOLERANCE:
+            nz_idx += 1
+            mult = nu_eval[nz_idx]
+
+        sign = np.sign(self.hyperplane.a[0] / mult)
 
         if normalize:
             nu /= se.sqrt(sum([a**2 for a in nu.ravel()]))
@@ -197,7 +253,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         """
         Calculate distance from v to the supporting hyperplane of the control face.
         """
-        v = se.Matrix(v)
+        v = se.Matrix(list(v))
         eta = self.facet_normal
         d = (eta.T @ v)[0] - self.offset
 
@@ -226,7 +282,7 @@ class ZonotopeFacetGradient(ZonotopeGradient):
         if evaluate:
             return self._evaluate(grad)
         else:
-            return se.Matrix(grad)
+            return se.Matrix(grad) #<- this is bugged, can't convert to se.Matrix
 
     def _distance_gradient_explicit(self, v):
         """
@@ -303,6 +359,8 @@ def ZonotopeFaceGradient(ZonotopeGradient):
     lies on a possibly lower dimensional face, not necessarily a facet.
 
     This is the "correct" gradient, as opposed to using the normal cone hack.
+
+    This is still TODO
     """
 
     def __init__(self, facet_gradients: list[ZonotopeFacetGradient]):

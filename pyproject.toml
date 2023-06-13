@@ -1,5 +1,6 @@
 [tool.poetry]
 name = "tropical-reconstruction"
+#name = "polynet" (new name possibility)
 version = "0.1.0"
 description = ""
 authors = ["George D. Torres"]

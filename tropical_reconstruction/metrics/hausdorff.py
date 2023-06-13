@@ -5,6 +5,43 @@ import numpy as np
 import scipy as sp
 from tropical_reconstruction.utils import unit_ball
 
+def distance_to_polytope_l2(x, P):
+    """
+    Find the distance to from x to P in L^2 norm.
+    
+    Returns the distance, the point p in P closest to x,
+    and the coefficients of the sum representing p
+    as a convex sum of vertices of P.
+    """
+    x = np.array(x, np.float64)
+    P_vertices = P.vertices
+
+    Q = sp.linalg.block_diag(
+        np.eye(len(x)), np.zeros((len(P_vertices), len(P_vertices)))
+    )
+    q = -np.concatenate([x, np.zeros(len(P_vertices))])
+    A = np.concatenate([np.eye(len(x)), -P_vertices.T], axis=1)
+    A = np.concatenate([A, [[0] * len(x) + [1] * len(P_vertices)]], axis=0)
+    b = np.array([0] * len(x) + [1], np.float64)
+    lb = np.array([-np.inf] * len(x) + [0] * len(P_vertices), np.float64)
+    ub = np.array([np.inf] * (len(x) + len(P_vertices)), np.float64)
+    sol = solve_qp(
+        Q,
+        q,
+        A=A,
+        b=b,
+        lb=lb,
+        ub=ub,
+        solver="osqp",
+        polish=1,
+        eps_abs=1e-11,
+        eps_rel=1e-11,  # TODO: should this be THRESH?
+        max_iter=4000000,
+    )
+    p = sol[: len(x)]
+    coeffs = sol[len(x) :]
+    dist = np.linalg.norm(p - x)
+    return dist, p, coeffs
 
 def distance_to_polytope(x, P, metric=2):
     """Compute the L1 Hausdorff distance between x and P,
@@ -13,35 +50,14 @@ def distance_to_polytope(x, P, metric=2):
 
     If metric == 2, then use quadratic solver.
     If metric == 1 or infty, use an LP.
+
+    TODO: use py-hausdorff?
     """
     x = np.array(x, np.float64)
     P_vertices = P.vertices
 
     if metric == 2:
-        Q = sp.linalg.block_diag(
-            np.eye(len(x)), np.zeros((len(P_vertices), len(P_vertices)))
-        )
-        q = -np.concatenate([x, np.zeros(len(P_vertices))])
-        A = np.concatenate([np.eye(len(x)), -P_vertices.T], axis=1)
-        A = np.concatenate([A, [[0] * len(x) + [1] * len(P_vertices)]], axis=0)
-        b = np.array([0] * len(x) + [1], np.float64)
-        lb = np.array([-np.inf] * len(x) + [0] * len(P_vertices), np.float64)
-        ub = np.array([np.inf] * (len(x) + len(P_vertices)), np.float64)
-        sol = solve_qp(
-            Q,
-            q,
-            A=A,
-            b=b,
-            lb=lb,
-            ub=ub,
-            solver="osqp",
-            polish=1,
-            eps_abs=1e-9,
-            eps_rel=1e-9,  # TODO: should this be THRESH?
-            max_iter=20000,
-        )
-        sol = sol[: len(x)]
-        dist = np.linalg.norm(sol - x)
+        dist, sol, _ = distance_to_polytope_l2(x,P)
         return dist, sol
 
     else:

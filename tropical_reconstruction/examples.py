@@ -2,6 +2,7 @@ import numpy as np
 from tropical_reconstruction.tzlp import TZLP_Solver
 from tropical_reconstruction.utils import test_tzlp, generate_witness, generate_LP_example
 from tropical_reconstruction.function import TropicalPolynomial, PolynomialNeuralNetwork, test_equal
+from tropical_reconstruction.polytope import Zonotope
 
 
 def clean_float(fl):
@@ -37,7 +38,7 @@ class TropicalExampleB:
     ]
     coeffs = [10, 12, 9, 11, 14, 16, 13, 15, -5, -3, -6, -4, -1, 1, -2, 0]
     f = TropicalPolynomial(monomials, coeffs)
-    f.Qz = np.array([[4, 2, 2, 0], [0, 1, 4, 6]])
+    f._zonotope = Zonotope(generators=np.array([[4, 2, 2, 0], [0, 1, 4, 6]]).T)
 
 
 class NeuralNetworkExampleB:
@@ -71,7 +72,7 @@ class NeuralNetworkExampleC:
 
 class TropicalExampleC:
     f = NeuralNetworkExampleC.NN.tropical()[0]
-    f.Qz = NeuralNetworkExampleC.A.T
+    f._zonotope = Zonotope(generators = NeuralNetworkExampleC.A)
 
 
 class TZLPExampleC:

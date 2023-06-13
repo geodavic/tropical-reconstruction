@@ -28,7 +28,7 @@ class TropicalPolynomial:
         """
         self.input_dim = len(monomials[0])
         self._set_poly(monomials, coeffs)
-        self.Qz = None  # if Newt(f) is a zonotope, this is the generator matrix (see self.zonotope)
+        self._zonotope = None  # if Newt(f) is a zonotope
 
     def _set_poly(self, mons, coeffs):
         """Set the dictionary defining the tropical polynomial, asserting
@@ -223,19 +223,18 @@ class TropicalPolynomial:
     def zonotope(self):
         """Checks if the newton polytope of f is a zonotope. If yes,
         then return the generators of that zonotope. Otherwise return None.
-        """
-        if self.Qz is not None:
-            return self.Qz
-        else:
-            return self._get_zonotope()
 
-    def _get_zonotope(self):
-        """Get the zonotope representation of Newt(f) (if it exists)."""
-        Z = Zonotope(pts=self.newton_polytope.pts)
-        try:
-            return Z.generators.T
-        except:
-            return None
+        TODO: assert that the zonotope is positive and contains origin
+        """
+        if self._zonotope is None:
+            Z = Zonotope(pts=self.newton_polytope.pts)
+            try:
+                Z.generators.T
+                self._zonotope = Z
+            except:
+                self._zonotope = None
+
+        return self._zonotope
 
     def _get_tzlp_data(self, verbose=True):
         """Get the data (Qz,U,Epsilon,z0) necessary to set up the TZLP associated to
@@ -244,7 +243,7 @@ class TropicalPolynomial:
         if self.zonotope is not None:
             upper_hull_vertices = self.legendre_vertices
             U = [list(v) for v in upper_hull_vertices if sum(v[:-1])]
-            Qz = self.zonotope.astype(np.float64)
+            Qz = self.zonotope.generators.T.astype(np.float64)
             d, n = Qz.shape
             z0 = [0] * d + [self.constant_term]
             Epsilon = []
@@ -389,13 +388,14 @@ class PolynomialNeuralNetwork:
 
             polys = new_polys
 
-        # In depth two case, manually set the zonotope generators,
-        # since we know them a-priori.
+        # In depth two case, manually set the zonotope,
+        # since we know it a-priori.
         if self.depth == 2:
             for j, f in enumerate(polys):
                 A = self.weights[0]
                 B = self.weights[1][j]
-                f.Qz = np.array([B[i] * A[i] for i in range(len(A))]).T
+                generators = np.array([B[i] * A[i] for i in range(len(A))])
+                f._zonotope = Zonotope(generators=generators)
 
         return polys
 
