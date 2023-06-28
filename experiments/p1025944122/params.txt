@@ -1,5 +1,0 @@
-lr=0.005
-dimension=4
-multiplicity_thresh=0.999
-rank=6
-steps=3000

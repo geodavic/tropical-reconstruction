@@ -6,7 +6,7 @@ from tropical_reconstruction.utils import all_subsets, binary_to_subset
 TOLERANCE = 1e-8
 TOLERANCE_DIGITS = -int(math.log10(TOLERANCE))
 
-def random_zonotope(n, d, scale=None, positive=True):
+def random_zonotope(n, d, scale=None, positive=True, random_anchor=False):
     """Create a random Zonotope of rank n in R^d"""
     if scale is None:
         scale = np.sqrt(1 / n)
@@ -15,8 +15,14 @@ def random_zonotope(n, d, scale=None, positive=True):
     if not positive:
         Az = 2*Az - 1
 
+    if random_anchor:
+        mu = np.random.rand(d)
+    else:
+        mu = np.zeros(d)
+
     Az = scale * Az
-    Z = Zonotope(generators=Az)
+    mu = scale * mu
+    Z = Zonotope(generators=Az,mu=mu)
     return Z
 
 def random_polytope(k, d, scale=1):

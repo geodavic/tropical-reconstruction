@@ -91,13 +91,15 @@ def render_polytopes_close_ties(P: Polytope, Z: Zonotope, metric=2, name=None, t
 
 
 if __name__ == "__main__":
-    from examples import RandomNeuralNetwork
-    from function import test_equal
+    from tropical_reconstruction.examples import RandomNeuralNetwork
+    from tropical_reconstruction.function import test_equal
     import sys
-   
+    
     verbose = True
+    #NN = RandomNeuralNetwork((2,4,5,4,3,2,1),MAX=1,integer=False).NN
+    #h = NN.tropical(verbose=verbose)[0]
     while True:
-        NN = RandomNeuralNetwork((2,4,5,1),MAX=1,integer=False).NN
+        NN = RandomNeuralNetwork((2,4,5,4,1),MAX=1,integer=False).NN
         h = NN.tropical(verbose=verbose)[0]
         try:
             MM = h.neural_network(verbose=verbose)

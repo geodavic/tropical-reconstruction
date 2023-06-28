@@ -1,7 +1,7 @@
 import numpy as np
 from tropical_reconstruction.tzlp import TZLP_Solver
 from tropical_reconstruction.utils import test_tzlp, generate_witness, generate_LP_example
-from tropical_reconstruction.function import TropicalPolynomial, PolynomialNeuralNetwork, test_equal
+from tropical_reconstruction.function import TropicalPolynomial, PolynomialNeuralNetwork, NeuralNetwork, test_equal
 from tropical_reconstruction.polytope import Zonotope
 
 
@@ -104,26 +104,34 @@ class TropicalExampleD:
 
 class RandomNeuralNetwork:
     """A random depth 2 ReLU Polynomial Neural Network. Weights are chosen uniformly
-    inside [0,MAX] and thresholds are chosen uniformly in [-MAX/2,MAX/2].
+    inside [-MAX/2,MAX/2] (or [0,MAX] when convex=True) and thresholds are chosen 
+    uniformly in [-MAX/2,MAX/2].
     """
 
-    def __init__(self, architecture, MAX=None, integer=False):
+    def __init__(self, architecture, MAX=None, integer=False, convex=True):
         self.MAX = MAX or 10 / len(architecture)
         self.integer = integer
+        self.convex = convex
         self.set_params(architecture)
 
     def set_params(self, architecture):
         weights = []
         thresholds = []
         for L, K in zip(architecture, architecture[1:]):
-            A = self.MAX * np.random.rand(K, L)
+            if self.convex:
+                A = self.MAX * np.random.rand(K, L)
+            else:
+                A = 2 * self.MAX * np.random.rand(K, L) - self.MAX
             t = 2 * self.MAX * np.random.rand(K) - self.MAX
             if self.integer:
                 A = A.round(decimals=0)
                 t = t.round(decimals=0)
             weights.append(A)
             thresholds.append(t)
-        self.NN = PolynomialNeuralNetwork(weights, thresholds)
+        if self.convex:
+            self.NN = PolynomialNeuralNetwork(weights, thresholds)
+        else:
+            self.NN = NeuralNetwork(weights, thresholds)
 
 
 class RandomTZLP:

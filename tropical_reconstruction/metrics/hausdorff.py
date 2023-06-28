@@ -161,3 +161,19 @@ def hausdorff_distance_close(P, Q, thresh, metric=2):
             pairs += [(p, q)]
 
     return pairs
+
+def coarse_hausdorff_distance(P,Q):
+
+    distP = -np.inf
+    for p in P.vertices:
+        d = min([np.linalg.norm(p-q) for q in Q.vertices])
+        if d > distP:
+            distP = d
+
+    distQ = -np.inf
+    for q in Q.vertices:
+        d = min([np.linalg.norm(p-q) for p in P.vertices])
+        if d > distQ:
+            distQ = d
+    
+    return max(distP,distQ)

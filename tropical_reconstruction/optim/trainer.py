@@ -1,5 +1,5 @@
 from tropical_reconstruction.polytope import Polytope, Zonotope, random_zonotope, approximate_polytope
-from tropical_reconstruction.metrics import hausdorff_distance
+from tropical_reconstruction.metrics import hausdorff_distance, coarse_hausdorff_distance
 from tropical_reconstruction.optim import GradientOptimizer, ZonotopeOptimizer
 from tropical_reconstruction.optim.lrschedulers import MultiplicityLRScheduler
 from tropical_reconstruction.utils.draw import render_polytopes, render_polytopes_close_ties
@@ -62,7 +62,7 @@ class ZonotopeTrainer:
             Z = approximate_polytope(self.target_polytope, rank, outer=False)
         else:
             # random zonotope
-            Z = random_zonotope(rank, self.target_polytope.dim)
+            Z = random_zonotope(rank, self.target_polytope.dim, scale=5)
             Z = Z.translate(self.target_polytope.barycenter - Z.barycenter)
 
         return Z
@@ -81,7 +81,9 @@ class ZonotopeTrainer:
         num_steps: int,
         stop_thresh: float = None,
         multiplicity_thresh: float = None,
-        save_losses: str = None
+        save_losses: bool = False,
+        save_ratios: bool = False,
+        render_last: bool = False
     ):
         if stop_thresh is None:
             stop_thresh = 0
@@ -89,6 +91,7 @@ class ZonotopeTrainer:
             multiplicity_thresh = 1
 
         losses = []
+        ratios = []
         pbar = tqdm(range(num_steps))
         for step in pbar:
             distance, target_pt, control_pt, multiplicity = hausdorff_distance(
@@ -100,6 +103,9 @@ class ZonotopeTrainer:
             )
 
             losses += [distance]
+            if save_ratios:
+                ratios += [coarse_hausdorff_distance(self.target_polytope,self.zonotope)/distance]
+
             if distance < stop_thresh:
                 return self.zonotope
 
@@ -110,8 +116,12 @@ class ZonotopeTrainer:
                 self.zonotope = Z
             else:
                 return self.zonotope
-        if save_losses is not None:
+        if save_losses:
             np.save("losses.npy", np.array(losses))
+        if save_ratios:
+            np.save("ratios.npy", np.array(ratios))
+        if render_last:
+            render_polytopes_close_ties(self.target_polytope, self.zonotope, name=f"out.png")
         return self.zonotope
 
 
@@ -172,6 +182,5 @@ class ZonotopeTrainerWithVideo(ZonotopeTrainer):
         **kwargs,
     ):
         Z = super().train(**kwargs)
-        render_polytopes_close_ties(self.target_polytope, self.zonotope, name=f"out.png")
         self.out.release()
         return Z

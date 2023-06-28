@@ -7,6 +7,7 @@ from tropical_reconstruction.polytope import Polytope, Zonotope, TOLERANCE
 
 from tropical_reconstruction.utils import all_subsets
 from tropical_reconstruction.utils.draw import draw_polytope
+from typing import List
 
 
 class TropicalPolynomial:
@@ -75,6 +76,8 @@ class TropicalPolynomial:
         TODO: handle floats and ints
         """
         new_poly = {}
+        if isinstance(g, float) or isinstance(g, int):
+            g = TropicalPolynomial([ (0,0) ], [g])
 
         # Handle monomial case as base case
         if len(g.poly) == 1:
@@ -290,12 +293,16 @@ class TropicalPolynomial:
 
         return PolynomialNeuralNetwork(weights, thresholds)
 
+class TropicalRationalFunction:
+    def __init__(self, f: TropicalPolynomial, g: TropicalPolynomial):
+        self.numerator = f
+        self.denominator = g
 
-class PolynomialNeuralNetwork:
-    """
-    A fully connected homogenous Neural Network with non-negative weights
-    and ReLU activation.
-    """
+    def __call__(self, x):
+        return self.numerator(x) - self.denominator(x)
+
+class NeuralNetwork:
+    """ A fully connected homogenous Neural Network with ReLU activation """
 
     def __init__(self, weights, thresholds):
         """
@@ -316,7 +323,6 @@ class PolynomialNeuralNetwork:
             thresholds
         ), "Weights and thresholds must be in bijection."
         for A, t in zip(self.weights, self.thresholds):
-            assert (A >= 0).all(), "All weights must be nonnegative."
             assert len(A) == len(
                 t
             ), "At least one pair (A,t) of weights and thresholds are dimensionally incompatible"
@@ -355,7 +361,75 @@ class PolynomialNeuralNetwork:
                 new_thresh += np.copy(t)
             c += 1
 
-        return PolynomialNeuralNetwork(new_weights, new_thresh)
+        return type(self)(new_weights, new_thresh)
+
+    def __call__(self, x):
+        """Evaluate the Neural Network at x."""
+        assert len(x) == self.input_dim, "Input has incorrect dimension."
+        if type(x) == np.ndarray:
+            ret = np.copy(x)
+        else:
+            ret = np.array(x)
+
+        for A, t in zip(self.weights, self.thresholds):
+            ret = np.maximum(A @ ret, t)
+        return ret
+
+    def _multiply_row(self, row: List[int],polys: List[TropicalPolynomial]) -> TropicalPolynomial:
+        P = [p.power(a, lazy=True) for a, p in zip(row, polys)]
+        prod = P[0]
+        for p in P[1:]:
+            prod = prod * p
+            prod = prod.simplify()
+        return prod
+
+    def tropical(self):
+        """
+        Return a pair of tropical polynomials f,g such that this network
+        is equal to f - g pointwise.
+        """
+        var_xi = lambda i: tuple([int(i == j) for j in range(self.input_dim)])
+        # F starts off as coordinate functions
+        polysF = [TropicalPolynomial([var_xi(i)], [0]) for i in range(self.input_dim)]
+        # G starts off at zero
+        polysG = [TropicalPolynomial([(0,)*self.input_dim], [0]) for i in range(self.input_dim)]
+
+        # Recursively calculate polynomials at each layer
+        for L in range(self.depth):
+            new_polysF = []
+            new_polysG = []
+            
+            for row, thresh in zip(self.weights[L], self.thresholds[L]):
+                assert len(row) == len(polysF), f"Dimension mismatch with weights at layer {L+2}"
+                assert len(row) == len(polysG), f"Dimension mismatch with weights at layer {L+2}"
+                row_plus = 0.5*(row+abs(row))
+                row_neg = -0.5*(row-abs(row))
+
+                Apf = self._multiply_row(row_plus, polysF)
+                Apg = self._multiply_row(row_plus, polysG)
+                Anf = self._multiply_row(row_neg, polysF)
+                Ang = self._multiply_row(row_neg, polysG)
+                
+                new_polysF += [ (Apf * Ang) + (thresh * Anf * Apg) ]
+                new_polysG += [ Anf * Apg ]
+
+            polysF = new_polysF
+            polysG = new_polysG
+
+        return [TropicalRationalFunction(f,g) for f,g in zip(new_polysF, new_polysG)]
+
+
+class PolynomialNeuralNetwork(NeuralNetwork):
+    """
+    A fully connected homogenous Neural Network with non-negative weights
+    and ReLU activation.
+    """
+
+    def __init__(self, weights, thresholds):
+        super().__init__(weights, thresholds)
+        for A, t in zip(self.weights, self.thresholds):
+            assert (A >= 0).all(), "All weights must be nonnegative."
+
 
     def tropical(self, verbose=False):
         """Return the associated tropical polynomial(s) to the network."""
@@ -372,11 +446,7 @@ class PolynomialNeuralNetwork:
                 assert len(row) == len(
                     polys
                 ), f"Dimension mismatch with weights at layer {L+2}"
-                P = [p.power(a, lazy=True) for a, p in zip(row, polys)]
-                prod = P[0]
-                for p in P[1:]:
-                    prod = prod * p
-                    prod = prod.simplify()
+                prod = self._multiply_row(row, polys)
 
                 if verbose:
                     if prod.constant_term == (prod + thresh).constant_term:
@@ -398,18 +468,6 @@ class PolynomialNeuralNetwork:
                 f._zonotope = Zonotope(generators=generators)
 
         return polys
-
-    def __call__(self, x):
-        """Evaluate the Neural Network at x."""
-        assert len(x) == self.input_dim, "Input has incorrect dimension."
-        if type(x) == np.ndarray:
-            ret = np.copy(x)
-        else:
-            ret = np.array(x)
-
-        for A, t in zip(self.weights, self.thresholds):
-            ret = np.maximum(A @ ret, t)
-        return ret
 
 
 def test_equal(f1, f2, input_dim, n_samples=10000, size=500):

@@ -21,7 +21,9 @@ if __name__ == "__main__":
     parser.add_argument("--render_start", type=int, default=0)
     parser.add_argument("--dimension", type=int, default=2)
     parser.add_argument("--stop_thresh", type=float, default=None)
-    parser.add_argument("--save_losses", action="store_false")
+    parser.add_argument("--save_losses", action="store_true")
+    parser.add_argument("--save_ratios", action="store_true")
+    parser.add_argument("--render_last", action="store_true")
     parser.add_argument("--multiplicity_thresh", type=float, default=0.96)
 
     args = parser.parse_args()
@@ -39,5 +41,6 @@ if __name__ == "__main__":
     P = random_polytope(10, args.dimension)
 
     trainer = create_zonotope_gradient_trainer(P,args.lr,args.rank, args.warmstart, args.z_seed, args.normalize_grad, args.render, args.render_start)
-
-    trainer.train(num_steps=args.steps, stop_thresh=args.stop_thresh, multiplicity_thresh=args.multiplicity_thresh, save_losses=args.save_losses)
+   
+    print(args.save_ratios)
+    Z = trainer.train(num_steps=args.steps, stop_thresh=args.stop_thresh, multiplicity_thresh=args.multiplicity_thresh, save_losses=args.save_losses, save_ratios=args.save_ratios, render_last=args.render_last)
