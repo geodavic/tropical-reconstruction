@@ -1,6 +1,8 @@
-# Solving the reconstruction problem for tropical neural networks
+# Zonotope Matching and Approximation for Neural Networks
 
-This is a repository implementing the algorithms presented in "Zonotope Matching and Approximation for Neural Networks" We assume the user is familiar with the concepts and notation therein. 
+*Copyright George D. Torres 2023.*
+
+Submitted as supplementary material for "Zonotope Matching and Approximation for Neural Networks".
 
 # Installing
 
