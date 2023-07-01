@@ -62,7 +62,7 @@ class ZonotopeTrainer:
             Z = approximate_polytope(self.target_polytope, rank, outer=False)
         else:
             # random zonotope
-            Z = random_zonotope(rank, self.target_polytope.dim, scale=5)
+            Z = random_zonotope(rank, self.target_polytope.dim, scale=1) # 5
             Z = Z.translate(self.target_polytope.barycenter - Z.barycenter)
 
         return Z
