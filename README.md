@@ -2,7 +2,7 @@
 
 *Copyright George D. Torres 2023.*
 
-Submitted as supplementary material for "Zonotope Matching and Approximation for Neural Networks".
+Submitted as supplementary material for "Zonotope Matching and Approximation for Neural Networks", a thesis submitted in partial fulfillment for the requirements of Doctor of Philosophy at the University of Texas at Austin.
 
 # Installing
 
