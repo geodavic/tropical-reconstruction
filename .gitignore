@@ -1,2 +1,4 @@
-__pycache__/*
-template.py
+**/__pycache__/*
+*.svg
+*.png
+*.mp4

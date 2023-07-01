@@ -7,20 +7,81 @@ from scipy.spatial import ConvexHull
 
 def all_subsets(n):
     subsets = []
-    for i in range(2 ** n):
+    for i in range(2**n):
         L = list(bin(i)[2:])
         L = [0] * (n - len(L)) + [int(l) for l in L]
         subsets += [L]
     return subsets
 
-def elements(N,n):
-    rval=[]
+
+def binary_to_subset(L):
+    subset = [i for i in range(len(L)) if L[i]]
+    return subset
+
+
+def elements(N, n):
+    rval = []
     for i in range(n):
-        if 1&(N>>i):
+        if 1 & (N >> i):
             rval.append(1)
-        else:   
+        else:
             rval.append(0)
     return rval
+
+
+def mathematica_print(A):
+    """Print 2d array in mathematica format"""
+    if type(A) != np.ndarray:
+        return str(A)
+    else:
+        return "{" + ",".join([mathematica_print(a) for a in A]) + "}"
+
+
+def unit_ball(d, p=1):
+    """Return vertices of the unit l^p ball in R^d."""
+    if p == 1:
+        V = []
+        for i in range(d):
+            v = np.zeros(d)
+            v[i] = 1
+            w = np.zeros(d)
+            w[i] = -1
+            V.append(v)
+            V.append(w)
+        V = np.array(V)
+    else:
+        raise NotImplementedError(f"Metric {p} is not supported")
+
+    return V
+
+
+def generate_LP_example(n, d, z0=1):
+    """Generate a random QZ, project it to Qz. Then set U to be the
+    set of vertices of Qz (with the lifted points from QZ) and return the tzlp.
+    """
+    Qz = np.random.rand(d, n)
+    last_row = np.random.rand(n)
+    QZ = np.append(Qz, [last_row], axis=0)
+
+    all_vertices = np.array([elements(i, n) for i in range(2**n)])
+
+    # create vertices of Qz
+    Qz_cubical_vertices = []
+    for v in all_vertices:
+        Qz_cubical_vertices.append(Qz @ v)
+    Qz_cubical_vertices = np.array(Qz_cubical_vertices)
+
+    Qz_hull = ConvexHull(Qz_cubical_vertices)
+    Epsilon = [list(v) for v in all_vertices[Qz_hull.vertices] if np.sum(v)]
+    U = [list(QZ @ e) for e in Epsilon]
+
+    z0 = [0] * d + [z0]
+
+    return Qz, QZ, U, z0, Epsilon
+
+
+################### Old Code #######################
+
 
 def sample_polytope(A, b, N=1, outside=False):
     # sample from polytope of the form Ax <= b
@@ -58,42 +119,6 @@ def sample_polytope(A, b, N=1, outside=False):
 
     return start
 
-def generate_LP_example(n,d,z0=1):
-    """ Generate a random QZ, project it to Qz. Then set U to be the 
-    set of vertices of Qz (with the lifted points from QZ) and return the tzlp.
-    """
-    Qz = np.random.rand(d,n)
-    last_row = np.random.rand(n)
-    QZ = np.append(Qz,[last_row],axis=0)
-
-    all_vertices = np.array([elements(i,n) for i in range(2**n)])
-   
-    # create vertices of Qz
-    Qz_cubical_vertices = []
-    for v in all_vertices:
-        Qz_cubical_vertices.append(Qz@v)
-    Qz_cubical_vertices = np.array(Qz_cubical_vertices)
-
-    Qz_hull = ConvexHull(Qz_cubical_vertices)
-    Epsilon = [list(v) for v in all_vertices[Qz_hull.vertices] if np.sum(v)]
-    U = [list(QZ@e) for e in Epsilon]
-    
-    z0 = [0]*d+[z0]
-
-    return Qz,QZ,U,z0,Epsilon
-
-def get_upper_hull(hull):
-    """ Get the upper hull hyperplanes from a ConvexHull object.
-    This has some precision issues.
-    """
-    check_vertical = lambda x : np.round(x,decimals=8) > 0
-    upper_hull_inequalities = [
-        e for e in np.unique(hull.equations, axis=0) if check_vertical(e[-2])
-    ]
-    return upper_hull_inequalities
-
-
-################### Old Code #######################
 
 def generate_witness(QZ, Epsilon, y_namer, w_namer, x_namer, N=1, outside=False):
     # Given a solution x (encoded as the last row of QZ), generate witness values
@@ -147,5 +172,3 @@ def test_tzlp(N, QZ, Epsilon, tzlp):
             total_errors += 1
     print("Total errors: {}".format(total_errors))
     return
-
-
