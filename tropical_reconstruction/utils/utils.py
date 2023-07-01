@@ -28,6 +28,32 @@ def elements(N, n):
             rval.append(0)
     return rval
 
+def print_poly(poly: dict):
+    mons = list(poly.keys())
+    dim = len(mons[0])
+    variables = ["x","y","z"]
+    get_var = lambda i : variables[i%3]+(str(i//3+1) if i > 2 else "")
+
+    mons = []
+    for m,c in poly.items():
+        s = ""
+        if c < 0:
+            s+= f"({str(c)})"
+        else:
+            s+= str(c)
+
+        if sum(m):
+            s+= "•"
+        for i,ex in enumerate(m):
+            if ex > 1:
+                s += get_var(i)+"^"+str(ex)
+            elif ex == 1:
+                s += get_var(i)
+            elif ex <= 0:
+                pass # assuming non negative moonomials
+        mons += [s]
+
+    return " + ".join(mons)
 
 def mathematica_print(A):
     """Print 2d array in mathematica format"""

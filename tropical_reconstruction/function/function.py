@@ -5,7 +5,7 @@ from copy import copy
 from tropical_reconstruction.tzlp import solve_tzlp, solve_algebraic_reconstruction
 from tropical_reconstruction.polytope import Polytope, Zonotope, TOLERANCE
 
-from tropical_reconstruction.utils import all_subsets
+from tropical_reconstruction.utils import all_subsets, print_poly
 from tropical_reconstruction.utils.draw import draw_polytope
 from typing import List
 
@@ -56,6 +56,9 @@ class TropicalPolynomial:
             else:
                 poly[m] = c
         return poly
+
+    def __repr__(self):
+        return print_poly(self.poly)
 
     def __add__(self, g):
         """Add another polynomial (tropically).

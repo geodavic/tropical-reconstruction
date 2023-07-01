@@ -25,10 +25,11 @@ To create a tropical polynomial, use the `TropicalPolynomial` class, and pass th
 ```python
 >>> from tropical_recionstruction.function import TropicalPolynomial
 >>> f = TropicalPolynomial([(0,0),(1,1),(2,1)],[1,2,3])
+>>> f
+1 + 2•xy + 3•x^2y
 ```
-(make sure you are in the root directory when you run this, or else it will not know what `function` is)
 
-This is the polynomial `1+2xy+3x^2y`. To evaluate this polynomial at a point `[x,y]`:
+To evaluate this polynomial at a point `[x,y]`:
 ```python
 >>> f([1.2,5])
 10.4
@@ -53,8 +54,8 @@ There is a larger example polynomial in `example.py`:
 ```python
 >>> from tropical_reconstruction.examples import TropicalExampleB
 >>> f = TropicalExampleB.f
->>> f.poly
-{(0, 0): 10, (4, 0): 12, (2, 1): 9, (6, 1): 11, (2, 4): 14, (6, 4): 16, (4, 5): 13, (8, 5): 15, (0, 6): -5, (4, 6): -3, (2, 7): -6, (6, 7): -4, (2, 10): -1, (6, 10): 1, (4, 11): -2, (8, 11): 0}
+>>> f
+10 + 12•x^4 + 9•x^2y + 11•x^6y + 14•x^2y^4 + 16•x^6y^4 + 13•x^4y^5 + 15•x^8y^5 + (-5)•y^6 + (-3)•x^4y^6 + (-6)•x^2y^7 + (-4)•x^6y^7 + (-1)•x^2y^10 + 1•x^6y^10 + (-2)•x^4y^11 + 0•x^8y^11
 ```
 
 `TropicalPolynomial` objects can be (tropically) added and multiplied:
@@ -62,11 +63,11 @@ There is a larger example polynomial in `example.py`:
 ```python
 >>> g = TropicalPolynomial([(1,2),(2,2)],[-1,-1])
 >>> h = f+g
->>> h.poly
-{(1, 2): -1, (2, 2): -1, (0, 0): 1, (1, 1): 2, (2, 1): 3}
+>>> h
+(-1)•xy^2 + (-1)•x^2y^2 + 10 + 12•x^4 + 9•x^2y + 11•x^6y + 14•x^2y^4 + 16•x^6y^4 + 13•x^4y^5 + 15•x^8y^5 + (-5)•y^6 + (-3)•x^4y^6 + (-6)•x^2y^7 + (-4)•x^6y^7 + (-1)•x^2y^10 + 1•x^6y^10 + (-2)•x^4y^11 + 0•x^8y^11
 >>> h = f*g
->>> h.poly
-(2, 2): 0, (3, 3): 2, (4, 3): 2, (1, 2): 0, (2, 3): 1}
+>>> h
+9•x^2y^2 + 11•x^6y^2 + 8•x^4y^3 + 10•x^8y^3 + 13•x^4y^6 + 15•x^8y^6 + 12•x^6y^7 + 14•x^10y^7 + (-6)•x^2y^8 + (-4)•x^6y^8 + (-7)•x^4y^9 + (-5)•x^8y^9 + (-2)•x^4y^12 + 0•x^8y^12 + (-3)•x^6y^13 + (-1)•x^10y^13 + 9•xy^2 + 11•x^5y^2 + 8•x^3y^3 + 10•x^7y^3 + 13•x^3y^6 + 15•x^7y^6 + 12•x^5y^7 + 14•x^9y^7 + (-6)•xy^8 + (-4)•x^5y^8 + (-7)•x^3y^9 + (-5)•x^7y^9 + (-2)•x^3y^12 + 0•x^7y^12 + (-3)•x^5y^13 + (-1)•x^9y^13
 ```
 
 A tropical polynomial can be "simplified" by removing all inactive monomials, yielding a new polynomial that is pointwise equal:
@@ -74,8 +75,8 @@ A tropical polynomial can be "simplified" by removing all inactive monomials, yi
 ```python
 >>> h = TropicalPolynomial([(0,0),(2,0),(0,2),(1,1)],[1,1,1,0])
 >>> h1 = h.simplify()
->>> h1.poly
-{(0.0, 0.0): 1.0, (2.0, 0.0): 1.0, (0.0, 2.0): 1.0}
+>>> h1
+1.0 + 1.0•x^2.0 + 1.0•y^2.0
 ```
 
 To compute a tropical power of a polynomial f^a, use `.power(a)`. Passing `lazy=True` will compute the simplification of the tropical power, denoted f^[a]. This is generally much faster.
@@ -125,12 +126,12 @@ To convert a `NeuralNetwork` object into a `TropicalRationalFunction`, use the `
 
 ```python
 >>> from tropical_reconstruction.examples import NeuralNetworkExampleE
->>> N = NeuralNetworkExampleE
+>>> N = NeuralNetworkExampleE.NN
 >>> [h] = N.tropical()
->>> h.numerator.poly
-{(6.0, 4.0): 6.0, (2.0, 16.0): 3.0, (6.0, 12.0): 7.0, (2.0, 12.0): 8.5, (4.0, 5.0): 4.5, (0.0, 17.0): 1.5, (4.0, 13.0): 5.5, (0.0, 13.0): 7.0, (6.0, 6.0): 3.5, (2.0, 18.0): 0.5, (6.0, 14.0): 4.5, (2.0, 14.0): 6.0, (4.0, 7.0): 2.0, (0.0, 19.0): -1.0, (4.0, 15.0): 3.0, (0.0, 15.0): 4.5, (4.0, 8.0): 1.5, (8.0, 8.0): 0.0}
->>> h.denominator.poly
-{(6.0, 4.0): 9.0, (2.0, 16.0): 6.0, (6.0, 12.0): 2.0, (2.0, 12.0): 11.0, (4.0, 5.0): 7.5, (0.0, 17.0): 4.5, (4.0, 13.0): 0.5, (0.0, 13.0): 9.5, (6.0, 6.0): 6.5, (2.0, 18.0): 3.5, (6.0, 14.0): -0.5, (2.0, 14.0): 8.5, (4.0, 7.0): 5.0, (0.0, 19.0): 2.0, (4.0, 15.0): -2.0, (0.0, 15.0): 7.0}
+>>> h.numerator
+6.0•x^6.0y^4.0 + 3.0•x^2.0y^16.0 + 7.0•x^6.0y^12.0 + 8.5•x^2.0y^12.0 + 4.5•x^4.0y^5.0 + 1.5•y^17.0 + 5.5•x^4.0y^13.0 + 7.0•y^13.0 + 3.5•x^6.0y^6.0 + 0.5•x^2.0y^18.0 + 4.5•x^6.0y^14.0 + 6.0•x^2.0y^14.0 + 2.0•x^4.0y^7.0 + (-1.0)•y^19.0 + 3.0•x^4.0y^15.0 + 4.5•y^15.0 + 1.5•x^4.0y^8.0 + 0.0•x^8.0y^8.0
+>>> h.denominator
+9.0•x^6.0y^4.0 + 6.0•x^2.0y^16.0 + 2.0•x^6.0y^12.0 + 11.0•x^2.0y^12.0 + 7.5•x^4.0y^5.0 + 4.5•y^17.0 + 0.5•x^4.0y^13.0 + 9.5•y^13.0 + 6.5•x^6.0y^6.0 + 3.5•x^2.0y^18.0 + (-0.5)•x^6.0y^14.0 + 8.5•x^2.0y^14.0 + 5.0•x^4.0y^7.0 + 2.0•y^19.0 + (-2.0)•x^4.0y^15.0 + 7.0•y^15.0
 ```
 
 ## Converting Between Tropical Polynomials and Polynomial Neural Networks
@@ -141,8 +142,8 @@ To convert from a `PolynomialNeuralNetwork` to a `TropicalPolynomial`, use the `
 >>> from tropical_reconstruction.examples import NeuralNetworkExampleB
 >>> N = NeuralNetworkExampleB.NN
 >>> [f] = N.tropical()
->>> f.poly
-{(0, 0): 10, (4, 0): 12, (2, 1): 9, (6, 1): 11, (2, 4): 14, (6, 4): 16, (4, 5): 13, (8, 5): 15, (0, 6): -5, (4, 6): -3, (2, 7): -6, (6, 7): -4, (2, 10): -1, (6, 10): 1, (4, 11): -2, (8, 11): 0}
+>>> f
+10.0 + (-2.0)•x^4.0y^11.0 + 0.0•x^8.0y^11.0 + (-1.0)•x^2.0y^10.0 + (-5.0)•y^6.0 + 13.0•x^4.0y^5.0 + 15.0•x^8.0y^5.0 + 14.0•x^2.0y^4.0 + 16.0•x^6.0y^4.0 + 11.0•x^6.0y + 12.0•x^4.0
 ```
 
 We can verify that `f` and `N` are pointwise equal using the `test_equal` function (which samples 10000 points from the domain and checks if `f` and `N` are equal at these points).
