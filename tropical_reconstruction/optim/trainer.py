@@ -62,7 +62,7 @@ class ZonotopeTrainer:
             Z = approximate_polytope(self.target_polytope, rank, outer=False)
         else:
             # random zonotope
-            Z = random_zonotope(rank, self.target_polytope.dim, scale=1) # 5
+            Z = random_zonotope(rank, self.target_polytope.dim, scale=0.5) # 5
             Z = Z.translate(self.target_polytope.barycenter - Z.barycenter)
 
         return Z
@@ -154,7 +154,7 @@ class ZonotopeTrainerWithVideo(ZonotopeTrainer):
     def _setup_video(self):
         self.frame_size = (1000, 1000)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(self.filename, fourcc, 10, self.frame_size)
+        out = cv2.VideoWriter(self.filename, fourcc, 30, self.frame_size)
         return out
 
     def _single_train_step(self, target_pt, control_pt, multiplicity, step_number):
