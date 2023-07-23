@@ -4,6 +4,7 @@ from tropical_reconstruction.optim import GradientOptimizer, ZonotopeOptimizer
 from tropical_reconstruction.optim.lrschedulers import MultiplicityLRScheduler
 from tropical_reconstruction.utils.draw import render_polytopes, render_polytopes_close_ties
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 from tqdm import tqdm
 
@@ -67,7 +68,7 @@ class ZonotopeTrainer:
 
         return Z
 
-    def _single_train_step(self, target_pt, control_pt, multiplicity, step_number):
+    def _single_train_step(self, target_pt, control_pt, multiplicity, step_number, total_steps):
         return self.optimizer.step(
             target_pt,
             control_pt,
@@ -90,7 +91,7 @@ class ZonotopeTrainer:
         if multiplicity_thresh is None:
             multiplicity_thresh = 1
 
-        losses = []
+        self.losses = []
         ratios = []
         pbar = tqdm(range(num_steps))
         for step in pbar:
@@ -102,14 +103,14 @@ class ZonotopeTrainer:
                 thresh=multiplicity_thresh,
             )
 
-            losses += [distance]
+            self.losses += [distance]
             if save_ratios:
                 ratios += [coarse_hausdorff_distance(self.target_polytope,self.zonotope)/distance]
 
             if distance < stop_thresh:
                 return self.zonotope
 
-            type_,Z = self._single_train_step(target_pt, control_pt, multiplicity, step)
+            type_,Z = self._single_train_step(target_pt, control_pt, multiplicity, step, num_steps)
             pbar.set_description(f"d = {distance:10.10f}, mult = {multiplicity}, lr = {self.optimizer.lrscheduler.lr:6.6f}, type = {type_}")
 
             if Z is not None:
@@ -117,7 +118,7 @@ class ZonotopeTrainer:
             else:
                 return self.zonotope
         if save_losses:
-            np.save("losses.npy", np.array(losses))
+            np.save("losses.npy", np.array(self.losses))
         if save_ratios:
             np.save("ratios.npy", np.array(ratios))
         if render_last:
@@ -157,7 +158,7 @@ class ZonotopeTrainerWithVideo(ZonotopeTrainer):
         out = cv2.VideoWriter(self.filename, fourcc, 30, self.frame_size)
         return out
 
-    def _single_train_step(self, target_pt, control_pt, multiplicity, step_number):
+    def _single_train_step(self, target_pt, control_pt, multiplicity, step_number, total_steps):
         type_, Z = self.optimizer.step(
             target_pt,
             control_pt,
@@ -169,13 +170,31 @@ class ZonotopeTrainerWithVideo(ZonotopeTrainer):
             self.out.release() 
         elif step_number >= self.render_start:
             render_polytopes_close_ties(self.target_polytope, self.zonotope, name=f".tmp.png")
+            self._plot_losses(".losses.png",total_steps)
             img = cv2.imread(".tmp.png")
             img = cv2.resize(img, self.frame_size)
+
+            loss_size_factor = 3
+            loss_size = (int(self.frame_size[0]/loss_size_factor), int(self.frame_size[1]/loss_size_factor))
+            img2 = cv2.imread(".losses.png")
+            img2 = cv2.resize(img2,loss_size)
+            y_offset = x_offset = int((1-1/loss_size_factor)*self.frame_size[0])
+            img[y_offset:y_offset+img2.shape[0], x_offset:x_offset+img2.shape[1]] = img2
             self.out.write(img)
         else:
             pass
 
         return type_, Z
+
+    def _plot_losses(self, output_file, total_steps):
+        plt.clf()
+        fig, ax = plt.subplots()
+        ax.plot(self.losses, color='r')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_xlim(0,total_steps)
+        ax.set_ylim(0,max(self.losses))
+        plt.savefig(output_file)
 
     def train(
         self,
