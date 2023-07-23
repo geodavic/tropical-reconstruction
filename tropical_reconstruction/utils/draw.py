@@ -66,6 +66,7 @@ def render_polytopes(P: Polytope,Z: Zonotope, metric=2,name=None):
 
     dist,p,q,_ = hausdorff_distance(P,Z,metric=metric,full=False)
     plt.plot([p[0],q[0]],[p[1],q[1]],marker='*',color='k')
+    plt.axis('off')
 
     if name is None:
         name = "render.png"
@@ -79,14 +80,14 @@ def render_polytopes_close_ties(P: Polytope, Z: Zonotope, metric=2, name=None, t
 
     close_pts = hausdorff_distance_close(P,Z,thresh,metric=metric)
     for p,q in close_pts:
-        plt.plot([p[0],q[0]],[p[1],q[1]],marker="*",color='y')
+        plt.plot([p[0],q[0]],[p[1],q[1]],marker="*",color='k')
 
     dist,p,q,_ = hausdorff_distance(P,Z,metric=metric,full=False)
     plt.plot([p[0],q[0]],[p[1],q[1]],marker='*',color='k')
 
     if name is None:
         name = "render.png"
-    plt.savefig(name,bbox_inches='tight')
+    plt.savefig(name,bbox_inches='tight',dpi=800)
 
 
 
