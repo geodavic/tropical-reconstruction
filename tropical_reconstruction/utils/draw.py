@@ -87,7 +87,7 @@ def render_polytopes_close_ties(P: Polytope, Z: Zonotope, metric=2, name=None, t
 
     if name is None:
         name = "render.png"
-    plt.savefig(name,bbox_inches='tight',dpi=800)
+    plt.savefig(name,bbox_inches='tight',dpi=300)
 
 
 

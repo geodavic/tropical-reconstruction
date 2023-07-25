@@ -155,7 +155,7 @@ class ZonotopeTrainerWithVideo(ZonotopeTrainer):
     def _setup_video(self):
         self.frame_size = (1000, 1000)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(self.filename, fourcc, 30, self.frame_size)
+        out = cv2.VideoWriter(self.filename, fourcc, 100, self.frame_size)
         return out
 
     def _single_train_step(self, target_pt, control_pt, multiplicity, step_number, total_steps):
