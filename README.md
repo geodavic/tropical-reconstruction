@@ -187,6 +187,8 @@ python scripts/example_training_run.py --rank 5 --dimension 2 --steps 5000 --lr 
 
 The `--rank` parameter is the rank of the zonotope. Passing `--render_last` will generate an image `out.png` of the final zonotope overlaid on P.
 
+See the `vid` directory for videos of example runs.
+
 # TODO
 
 - Handle architectures of the form `(1,n,1)` in `TropicalPolynomial.neural_network()`
